@@ -158,6 +158,13 @@ class PlayerPhysics:
 
 PLAYER_PHYSICS: Final = PlayerPhysics()
 
+# Combat and spawn safety are independent of the movement tuning.
+MELEE_REACH = 46
+MELEE_DURATION = 0.16
+MELEE_COOLDOWN = 0.30
+SPAWN_PROTECTION_TIME = 3.0
+SPAWN_CLEARANCE = 128
+
 
 @dataclass(frozen=True)
 class EnemySettings:

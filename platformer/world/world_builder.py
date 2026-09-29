@@ -73,6 +73,7 @@ def build_world(
         player.emerge_from(world.doors[spawn_door])
     else:
         player.arrive_at(spawn)
+    world.protect_arrival()
     return world
 
 
@@ -87,7 +88,33 @@ def _resolve_spawn(
     if checkpoint_id is not None:
         for checkpoint in world.checkpoints:
             if checkpoint.checkpoint_id == checkpoint_id:
-                return checkpoint.respawn_point
+                return _safe_checkpoint_spawn(world, checkpoint.respawn_point, level)
+    return level.objects_of("player_spawn")[0].midbottom
+
+
+def _safe_checkpoint_spawn(world: World, point: tuple[float, float], level: LevelData) -> tuple[float, float]:
+    """Recover old/custom checkpoints embedded in terrain or a lethal pool."""
+    x, y = point
+    offsets = sorted(((dx, dy) for dx in range(-6, 7) for dy in range(-3, 4)),
+                     key=lambda pair: abs(pair[0]) + abs(pair[1]) * 2)
+    for dx, dy in offsets:
+        candidate = (x + dx * T, y + dy * T)
+        rect = world.player.rect.copy()
+        rect.midbottom = (round(candidate[0]), round(candidate[1]))
+        if not world.bounds.contains(rect):
+            continue
+        if any(kind == TileCollision.SOLID for _, _, kind in world.collision.cells_overlapping(
+            rect.left, rect.top, rect.right, rect.bottom
+        )):
+            continue
+        if not all(world.collision.is_standable(px, rect.bottom + 1)
+                   for px in (rect.left, rect.right - 1)):
+            continue
+        if any(isinstance(prop, (Water, Spikes)) and prop.touch_rect().colliderect(rect.inflate(8, 8))
+               for prop in world.props):
+            continue
+        return candidate
+    logger.warning("Unsafe checkpoint in %s; returning to level entrance", level.file_name)
     return level.objects_of("player_spawn")[0].midbottom
 
 
@@ -223,7 +250,7 @@ class _Builder:
             PendulumPlatform(
                 (spec.rect.centerx, spec.rect.top), spec.rect.height,
                 spec.get_float("amplitude", 45.0), spec.get_float("period", 3.2),
-                width=spec.get_int("width", 64), phase=spec.get_float("phase", 0.0),
+                width=spec.get_int("platform_width", spec.get_int("width", 64)), phase=spec.get_float("phase", 0.0),
             )
         )
 
@@ -244,7 +271,7 @@ class _Builder:
     def _add_carpet(self, spec: ObjectSpec) -> None:
         points = list(spec.points) or [spec.rect.midtop, (spec.rect.right, spec.rect.top)]
         self._world.platforms.append(
-            Carpet(points, spec.get_int("width", 96), spec.get_float("speed", 150.0))
+            Carpet(points, spec.get_int("carpet_width", spec.get_int("width", 96)), spec.get_float("speed", 150.0))
         )
 
     # --- Triggers ------------------------------------------------------------------------

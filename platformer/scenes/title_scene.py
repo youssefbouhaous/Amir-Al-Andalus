@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import pygame
 
 from core import settings
+from core.campaign import has_unfinished_extension, next_level
 from core.input import Action
 from core.session import GameSession
 from rendering.background import ParallaxBackground
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 CONTROLS = (
     "A / D or Left / Right - move",
     "Space / Z / K - jump (hold for higher jumps)",
-    "X / J / Shift - throw stars with the star robe",
+    "X / J / Shift - slash; star robe also throws stars",
     "S / Down - enter wells",
     "Escape / P - pause     F11 - fullscreen",
     "F1 - debug view     F5 - reload the level",
@@ -49,7 +50,7 @@ class TitleScene(Scene):
     def _make_menu(self) -> None:
         entries = []
         data = self.context.save.data
-        if data.has_progress and not data.game_completed:
+        if data.has_progress and (not data.game_completed or has_unfinished_extension(data)):
             entries.append(("Continue", self._continue_game))
         label = "New Journey" if data.has_progress else "Start Game"
         entries.extend([
@@ -111,10 +112,11 @@ class TitleScene(Scene):
                     raise LevelLoadError("The campaign contains a circular next_level link")
                 visited.add(file_name)
                 level = self.context.levels.load(file_name)
-                if not level.next_level:
+                following = next_level(level.file_name, level.next_level)
+                if not following:
                     file_name = settings.FIRST_LEVEL
                     break
-                file_name = level.next_level
+                file_name = following
         except LevelLoadError as error:
             self._message = str(error)
             return
@@ -124,6 +126,10 @@ class TitleScene(Scene):
         from scenes.level_intro_scene import LevelIntroScene
 
         self.context.save.data.seen_intro = True
+        # A save from before the continuation chapter existed may already be
+        # marked complete. Starting its next map re-opens the journey.
+        if file_name != settings.FIRST_LEVEL:
+            self.context.save.data.game_completed = False
         self.context.save.save()
         self.context.scenes.replace(LevelIntroScene(self.context, GameSession(file_name)))
 

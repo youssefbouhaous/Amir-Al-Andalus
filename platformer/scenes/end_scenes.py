@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from core import settings
+from core.campaign import next_level
 from core.session import GameSession
 from scenes.message_scene import MessageScene
 from world.level_data import LevelData
@@ -25,9 +26,9 @@ class LevelCompleteScene(MessageScene):
     def on_continue(self) -> None:
         from scenes.level_intro_scene import LevelIntroScene
 
-        next_level = self._level.next_level
-        if next_level:
-            self._session.enter_level(next_level)
+        following = next_level(self._level.file_name, self._level.next_level)
+        if following:
+            self._session.enter_level(following)
             self.context.scenes.replace(LevelIntroScene(self.context, self._session))
         else:
             self.context.scenes.replace(VictoryScene(self.context, self._session))

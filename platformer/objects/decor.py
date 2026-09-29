@@ -460,13 +460,13 @@ def create_decor(spec: ObjectSpec) -> Prop | None:
         size = max(1, spec.get_int("size", 1))
         return SwayingTree((x, y), _cached(("orange_tree", size), lambda: art.orange_tree(size)), f"orange{size}", True, layer)
     if style == "cypress":
-        height = spec.get_int("height", 110)
+        height = spec.get_int("decor_height", spec.get_int("height", 110))
         return SwayingTree((x, y), _cached(("cypress", height), lambda: art.cypress(height)), f"cypress{height}", False, layer)
     if style == "palm":
-        height = spec.get_int("height", 120)
+        height = spec.get_int("decor_height", spec.get_int("height", 120))
         return SwayingTree((x, y), _cached(("palm", height), lambda: art.palm(height)), f"palm{height}", False, layer)
     if style == "column":
-        height = spec.get_int("height", 96)
+        height = spec.get_int("decor_height", spec.get_int("height", 96))
         return ImageDecor((x, y), _cached(("column", height), lambda: art.column(height)), layer)
     if style == "urn":
         return ImageDecor((x, y), _cached(("urn",), art.urn), layer)

@@ -17,6 +17,7 @@ import pygame
 
 from audio.audio_manager import AudioManager
 from core import settings
+from core.campaign import next_level
 from core.assets import AssetManager
 from core.context import GameContext
 from core.input import InputState
@@ -85,7 +86,7 @@ class SceneFlowTests(unittest.TestCase):
 
     def test_each_goal_reaches_tally_and_next_level_or_victory(self):
         session = GameSession(settings.FIRST_LEVEL)
-        for number in range(1, 7):
+        for number in range(1, 11):
             with self.subTest(level=number):
                 level = self.levels.load(f"level{number}.tmx")
                 session.enter_level(level.file_name)
@@ -103,7 +104,7 @@ class SceneFlowTests(unittest.TestCase):
                 self.assertTrue(self.save.data.is_completed(level.file_name))
                 self.advance(0.5)
                 self.press(pygame.K_RETURN)
-                expected = LevelIntroScene if level.next_level else VictoryScene
+                expected = LevelIntroScene if next_level(level.file_name, level.next_level) else VictoryScene
                 self.assertIsInstance(self.context.scenes.top, expected)
         self.assertTrue(self.save.data.game_completed)
         self.assertTrue(SaveManager(self.save.path.parent).data.game_completed)

@@ -356,34 +356,34 @@ class _Map:
 THEME_DECOR: dict[str, tuple[tuple[str, float, bool, int, dict[str, object]], ...]] = {
     "garden": (
         ("decor", 0.05, True, 9, {"style": "orange_tree", "size": 1}),
-        ("decor", 0.04, True, 9, {"style": "cypress", "height": 120}),
+        ("decor", 0.04, True, 9, {"style": "cypress", "decor_height": 120}),
         ("tile", 0.12, False, 2, {"tile": "tuft"}),
         ("tile", 0.05, False, 3, {"tile": "flower"}),
         ("tile", 0.04, False, 3, {"tile": "grass"}),
     ),
     "palace": (
-        ("decor", 0.05, True, 8, {"style": "palm", "height": 130}),
+        ("decor", 0.05, True, 8, {"style": "palm", "decor_height": 130}),
         ("decor", 0.04, True, 8, {"style": "urn"}),
         ("tile", 0.06, False, 3, {"tile": "vase"}),
         ("tile", 0.06, False, 3, {"tile": "flower"}),
     ),
     "clockwork": (
-        ("decor", 0.04, True, 10, {"style": "cypress", "height": 110}),
+        ("decor", 0.04, True, 10, {"style": "cypress", "decor_height": 110}),
         ("tile", 0.08, False, 3, {"tile": "rock_small"}),
         ("tile", 0.05, False, 3, {"tile": "books"}),
     ),
     "rooftops": (
         ("tile", 0.1, False, 3, {"tile": "flower"}),
         ("tile", 0.05, False, 3, {"tile": "vase"}),
-        ("decor", 0.03, True, 12, {"style": "palm", "height": 110}),
+        ("decor", 0.03, True, 12, {"style": "palm", "decor_height": 110}),
     ),
     "mountain": (
-        ("decor", 0.035, True, 10, {"style": "cypress", "height": 100}),
+        ("decor", 0.035, True, 10, {"style": "cypress", "decor_height": 100}),
         ("tile", 0.1, False, 2, {"tile": "rock_small"}),
     ),
     "fortress": (
         ("tile", 0.08, False, 3, {"tile": "rock_small"}),
-        ("decor", 0.03, True, 12, {"style": "cypress", "height": 110}),
+        ("decor", 0.03, True, 12, {"style": "cypress", "decor_height": 110}),
     ),
     "court": (
         ("tile", 0.06, False, 3, {"tile": "vase"}),

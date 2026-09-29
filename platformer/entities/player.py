@@ -10,12 +10,14 @@ landings (a damped spring on the sprite's scale), dust at the feet, and the
 simulated turban tail.
 """
 
+import math
 from collections.abc import Mapping
 from enum import Enum, IntEnum, auto
 from typing import TYPE_CHECKING
 
 import pygame
 
+from core import settings
 from core.events import EventType
 from core.settings import PLAYER_PHYSICS, PlayerPhysics
 from entities.entity import Entity
@@ -112,6 +114,8 @@ class Player(Entity):
         self._wall_lock_timer = 0.0
         self._throw_cooldown = 0.0
         self._throw_timer = 0.0
+        self._attack_timer = 0.0
+        self._attack_facing = 1
         self._hurt_timer = 0.0
         self._idle_time = 0.0
         self._fall_speed = 0.0
@@ -139,6 +143,23 @@ class Player(Entity):
     @property
     def can_be_hurt(self) -> bool:
         return self.is_controllable and self._invulnerable_timer <= 0
+
+    @property
+    def attack_facing(self) -> int:
+        return self._attack_facing
+
+    @property
+    def attack_rect(self) -> pygame.Rect | None:
+        if not self.is_controllable or self._attack_timer <= 0:
+            return None
+        x = self.body.centerx
+        if self._attack_facing < 0:
+            x -= settings.MELEE_REACH
+        return pygame.Rect(round(x), round(self.body.top - 4), settings.MELEE_REACH,
+                           round(self.body.height + 1))
+
+    def protect_on_spawn(self) -> None:
+        self._invulnerable_timer = settings.SPAWN_PROTECTION_TIME
 
     @property
     def death_finished(self) -> bool:
@@ -223,6 +244,7 @@ class Player(Entity):
         self.body.velocity.update(0, 0)
         self.body.clear_contacts()
         self.previous_bottom = self.body.bottom
+        self._attack_timer = self._throw_timer = self._throw_cooldown = 0.0
         self.door = None
         self._set_state(PlayerState.IDLE)
         self.scarf.reset(self._scarf_anchor(), self.facing)
@@ -242,6 +264,7 @@ class Player(Entity):
         self._invulnerable_timer = max(0.0, self._invulnerable_timer - dt)
         self._throw_cooldown = max(0.0, self._throw_cooldown - dt)
         self._throw_timer = max(0.0, self._throw_timer - dt)
+        self._attack_timer = max(0.0, self._attack_timer - dt)
         self._hurt_timer = max(0.0, self._hurt_timer - dt)
         self._wall_lock_timer = max(0.0, self._wall_lock_timer - dt)
         self.previous_bottom = self.body.bottom
@@ -378,18 +401,23 @@ class Player(Entity):
             self._wall_timer = max(0.0, self._wall_timer - dt)
 
     def _update_throw(self, world: "World") -> None:
-        if not self.intent.attack_pressed or self.power < PowerLevel.STAR or self._throw_cooldown > 0:
+        if not self.intent.attack_pressed or self._throw_cooldown > 0:
             return
-        if world.count_player_projectiles() >= self.physics.max_projectiles:
-            return
-        from entities.projectiles import StarProjectile
-
-        hand = (self.body.centerx + self.facing * 12, self.body.top + 8)
-        world.spawn_projectile(StarProjectile(hand, self.facing, world.sprites))
-        self._throw_cooldown = self.physics.throw_cooldown
+        # Every robe can slash, on the ground or in the air. The star robe
+        # adds a projectile; reaching its projectile cap never disables melee.
+        self._attack_facing = self.facing
+        self._attack_timer = settings.MELEE_DURATION
+        self._throw_cooldown = settings.MELEE_COOLDOWN
         self._throw_timer = self.physics.throw_pose_time
         self._animator.play("throw", restart=True)
-        world.events.emit(EventType.STAR_THROWN, hand)
+        hand = (self.body.centerx + self.facing * 12, self.body.top + 8)
+        if self.power == PowerLevel.STAR and world.count_player_projectiles() < self.physics.max_projectiles:
+            from entities.projectiles import StarProjectile
+
+            world.spawn_projectile(StarProjectile(hand, self.facing, world.sprites))
+            world.events.emit(EventType.STAR_THROWN, hand)
+        else:
+            world.events.emit(EventType.PLAYER_ATTACKED, hand)
 
     def _update_landing(self, falling_speed: float, world: "World") -> None:
         on_ground = self.body.on_ground
@@ -582,6 +610,16 @@ class Player(Entity):
                 surface.blit(image, rect.topleft, pygame.Rect(0, 0, rect.width, visible))
             return
         surface.blit(image, rect)
+        if self.attack_rect is not None:
+            cx, cy = camera.to_screen(self.body.centerx, self.body.centery)
+            progress = 1.0 - self._attack_timer / settings.MELEE_DURATION
+            points = []
+            for i in range(13):
+                angle = -1.15 + i * 0.17 + progress * 0.25
+                points.append((round(cx + math.cos(angle) * settings.MELEE_REACH * self._attack_facing),
+                               round(cy + math.sin(angle) * 22)))
+            pygame.draw.lines(surface, (242, 186, 82), False, points, 5)
+            pygame.draw.lines(surface, (255, 247, 210), False, points, 2)
 
     def _door_progress(self) -> float:
         p = self.physics

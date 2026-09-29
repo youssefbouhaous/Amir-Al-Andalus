@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<tileset version="1.10" tiledversion="1.10.2" name="tileset" tilewidth="32" tileheight="32" tilecount="24" columns="8">
- <image source="../images/tileset.png" width="256" height="96" />
+<tileset version="1.10" tiledversion="1.10.2" name="tileset" tilewidth="32" tileheight="32" tilecount="48" columns="8">
+ <image source="../images/tileset.png" width="256" height="192" />
  <tile id="0">
   <properties>
    <property name="name" value="ground" />
@@ -129,6 +129,124 @@
    <property name="name" value="moon_block" />
    <property name="spawn" value="switch_block" />
    <property name="color" value="moon" />
+  </properties>
+ </tile>
+ <tile id="23">
+  <properties>
+   <property name="name" value="marble" />
+  </properties>
+ </tile>
+ <tile id="24">
+  <properties>
+   <property name="name" value="ashlar" />
+  </properties>
+ </tile>
+ <tile id="25">
+  <properties>
+   <property name="name" value="roof" />
+  </properties>
+ </tile>
+ <tile id="26">
+  <properties>
+   <property name="name" value="plaster" />
+  </properties>
+ </tile>
+ <tile id="27">
+  <properties>
+   <property name="name" value="wood" />
+  </properties>
+ </tile>
+ <tile id="28">
+  <properties>
+   <property name="name" value="mudejar" />
+  </properties>
+ </tile>
+ <tile id="29">
+  <properties>
+   <property name="name" value="rock" />
+  </properties>
+ </tile>
+ <tile id="30">
+  <properties>
+   <property name="name" value="ice" />
+  </properties>
+ </tile>
+ <tile id="31">
+  <properties>
+   <property name="name" value="red_wall" />
+  </properties>
+ </tile>
+ <tile id="32">
+  <properties>
+   <property name="name" value="palace" />
+  </properties>
+ </tile>
+ <tile id="33">
+  <properties>
+   <property name="name" value="court" />
+  </properties>
+ </tile>
+ <tile id="34">
+  <properties>
+   <property name="name" value="awning" />
+   <property name="collision" value="one_way" />
+  </properties>
+ </tile>
+ <tile id="35">
+  <properties>
+   <property name="name" value="shelf" />
+   <property name="collision" value="one_way" />
+  </properties>
+ </tile>
+ <tile id="36">
+  <properties>
+   <property name="name" value="ledge" />
+   <property name="collision" value="one_way" />
+  </properties>
+ </tile>
+ <tile id="37">
+  <properties>
+   <property name="name" value="bridge" />
+   <property name="collision" value="one_way" />
+  </properties>
+ </tile>
+ <tile id="38">
+  <properties>
+   <property name="name" value="crumble" />
+   <property name="spawn" value="crumble" />
+  </properties>
+ </tile>
+ <tile id="39">
+  <properties>
+   <property name="name" value="question_multi" />
+   <property name="spawn" value="question" />
+   <property name="contents" value="multicoin" />
+  </properties>
+ </tile>
+ <tile id="40">
+  <properties>
+   <property name="name" value="switch_toggle" />
+   <property name="spawn" value="switch_toggle" />
+  </properties>
+ </tile>
+ <tile id="41">
+  <properties>
+   <property name="name" value="tuft" />
+  </properties>
+ </tile>
+ <tile id="42">
+  <properties>
+   <property name="name" value="rock_small" />
+  </properties>
+ </tile>
+ <tile id="43">
+  <properties>
+   <property name="name" value="books" />
+  </properties>
+ </tile>
+ <tile id="44">
+  <properties>
+   <property name="name" value="vase" />
   </properties>
  </tile>
 </tileset>

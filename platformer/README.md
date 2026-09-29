@@ -57,12 +57,20 @@ python -m tools.build_assets --force
 python -m tools.build_assets --force --export-sprites   # + sprite templates
 ```
 
+The advanced continuation chapter is generated separately so the original
+six maps are never overwritten:
+
+```bash
+python -m tools.build_bonus_assets --force
+```
+
 ## Controls
 
 | Key | Action |
 |---|---|
 | A / D or Left / Right | Move |
 | Space | Jump (hold for a higher jump) |
+| X / J / Left Shift | Slash; the star robe also throws a star |
 | S / Down | Enter a tiled well (pipe) |
 | Escape | Pause |
 | Enter | Confirm in menus |

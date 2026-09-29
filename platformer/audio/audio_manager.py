@@ -59,6 +59,7 @@ EVENT_SOUNDS: dict[EventType, str] = {
     EventType.WIND_GUST: "wind",
     EventType.CARPET_LAUNCHED: "carpet",
     EventType.STAR_THROWN: "throw",
+    EventType.PLAYER_ATTACKED: "throw",
     EventType.PROJECTILE_BLOCKED: "clink",
     EventType.BOSS_ROAR: "roar",
     EventType.BOSS_HIT: "boss_hit",

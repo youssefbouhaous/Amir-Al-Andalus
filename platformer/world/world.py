@@ -170,6 +170,7 @@ class World:
             effect.update(dt, self)
         self.particles.update(dt)
 
+        self._melee_collisions()
         interactions.resolve(self)
         self._projectile_collisions()
         self._touch_props()
@@ -218,6 +219,35 @@ class World:
                 if not self.player.is_controllable:
                     return
 
+    def _melee_collisions(self) -> None:
+        hitbox = self.player.attack_rect
+        if hitbox is None:
+            return
+        direction = self.player.attack_facing
+        # Clip the swing at solid walls; one-way ledges don't block a blade.
+        cells = list(self.collision.cells_overlapping(hitbox.left, hitbox.top, hitbox.right, hitbox.bottom))
+        for tx, ty, kind in cells:
+            if kind != TileCollision.SOLID:
+                continue
+            tile = pygame.Rect(tx * settings.TILE_SIZE, ty * settings.TILE_SIZE,
+                               settings.TILE_SIZE, settings.TILE_SIZE)
+            if direction > 0:
+                hitbox.width = max(0, min(hitbox.right, tile.left) - hitbox.left)
+            else:
+                right = hitbox.right
+                hitbox.left = min(right, max(hitbox.left, tile.right))
+                hitbox.width = right - hitbox.left
+        for enemy in self.enemies:
+            if enemy.alive and enemy.is_dangerous and hitbox.colliderect(enemy.rect):
+                enemy.on_slashed(self, direction)
+
+    def protect_arrival(self) -> None:
+        """Reserve breathing room without awarding points for removed enemies."""
+        self.player.protect_on_spawn()
+        safe = self.player.rect.inflate(settings.SPAWN_CLEARANCE * 2, settings.TILE_SIZE * 4)
+        self.enemies = [enemy for enemy in self.enemies if not safe.colliderect(enemy.rect)]
+        self.projectiles = [p for p in self.projectiles if p.friendly or not safe.colliderect(p.rect)]
+
     # --- Blocks -----------------------------------------------------------------
     def bump_blocks(self, cells: list[tuple[int, int]], player: Player) -> None:
         """The player's head hit these cells; the block nearest their centre reacts."""
@@ -255,6 +285,7 @@ class World:
         if door is None:
             return False
         self.player.emerge_from(door)
+        self.protect_arrival()
         self.pending_door = None
         return True
 

@@ -133,6 +133,13 @@ class Enemy(Entity):
     def turn_around(self) -> None:
         self.facing = -self.facing
 
+    def on_slashed(self, world: "World", direction: int) -> bool:
+        # Ghul spirits are intangible, just as they are to thrown stars.
+        if self.star_immune or not self.is_dangerous or not self.alive:
+            return False
+        self.knock_out(world, direction)
+        return True
+
     def lights(self) -> list[Light]:
         return []
 

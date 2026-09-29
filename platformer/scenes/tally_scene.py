@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pygame
 
 from core import settings
+from core.campaign import next_level
 from core.session import GameSession
 from scenes.message_scene import MessageScene
 from ui.text import GOLD_TITLE, draw_text
@@ -20,6 +21,7 @@ class TallyScene(MessageScene):
         super().__init__(context, "Level Complete!", [])
         self._session = session
         self._level = level
+        self._next_level = next_level(level.file_name, level.next_level)
         self._recorded = False
         self._title_font = context.assets.get_font(54, "display")
         self._small_font = context.assets.get_font(settings.SMALL_FONT_SIZE)
@@ -41,7 +43,7 @@ class TallyScene(MessageScene):
         if record.best_time is None or session.level_time < record.best_time:
             record.best_time = session.level_time
         record.merge_pages(session.pages_found)
-        if not self._level.next_level:
+        if not self._next_level:
             save.data.game_completed = True
         save.save()
         self.context.audio.stop_music()
@@ -51,8 +53,8 @@ class TallyScene(MessageScene):
         from scenes.end_scenes import VictoryScene
         from scenes.level_intro_scene import LevelIntroScene
 
-        if self._level.next_level:
-            self._session.enter_level(self._level.next_level)
+        if self._next_level:
+            self._session.enter_level(self._next_level)
             self.context.scenes.replace(LevelIntroScene(self.context, self._session))
         else:
             self.context.scenes.replace(VictoryScene(self.context, self._session))
