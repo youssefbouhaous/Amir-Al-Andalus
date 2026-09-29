@@ -10,3 +10,8 @@ wheels/
 .venv
 
 game_state.jsonl
+
+# Repository contains only the platformer project
+/*
+!/.gitignore
+!/platformer/
