@@ -8,14 +8,16 @@ in; no code changes needed.
 """
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 import pygame
 
 from core.assets import AssetManager
 from rendering.animation import Animation
-from rendering.placeholder_art import Painter
+
+# Paints one frame: (target surface, animation name, frame index).
+Painter = Callable[[pygame.Surface, str, int], None]
 
 logger = logging.getLogger(__name__)
 

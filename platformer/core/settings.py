@@ -335,6 +335,7 @@ MENU_FONT_SIZE: Final = 30
 TITLE_FONT_SIZE: Final = 76
 SUBTITLE_FONT_SIZE: Final = 30
 SMALL_FONT_SIZE: Final = 20
+SIGN_FONT_SIZE: Final = 17
 
 # --- UI layout ----------------------------------------------------------------
 HUD_MARGIN: Final = 14

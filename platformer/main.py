@@ -13,6 +13,9 @@ def main() -> int:
         level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
     )
 
+    # 44.1 kHz stereo 16-bit is what the procedural audio renders; a small
+    # buffer keeps sound effects tight with the action.
+    pygame.mixer.pre_init(44100, -16, 2, 512)
     # pygame.init() never raises; it reports modules that failed (e.g. no
     # audio device). The game must still run without sound, so just log it.
     _, failed_modules = pygame.init()

@@ -6,42 +6,47 @@ in Tiled doesn't make the level unplayable.
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 
 import pygame
 
 from core import settings
 from core.assets import AssetManager
 from entities.enemies import create_enemy
-from entities.items import Coin
+from entities.items import Coin, Page
 from entities.player import Player, PowerLevel
-from objects.block import BrickBlock, QuestionBlock
-from objects.interactive import Drum, Fountain
-from objects.hazards import Spikes, Water, WindZone
-from objects.moving_platform import MovingPlatform
-from objects.block import SwitchBlock
+from objects.block import Block, BrickBlock, CrumbleBlock, QuestionBlock, SwitchBlock, SwitchToggleBlock
+from objects.decor import create_decor
+from objects.hazards import FireLion, Spikes, Water, WindZone
+from objects.interactive import Drum, Fountain, Sign
+from objects.platforms import Carpet, LilyPad, MovingPlatform, PendulumPlatform, Wheel
 from objects.switches import SwitchController
 from objects.triggers import Checkpoint, Door, Goal
-from rendering import placeholder_art, sprite_specs
+from rendering import sprite_specs
+from rendering.art import objects as object_art
+from rendering.art.tiles import make_tile, switch_outline
 from rendering.sprite_library import SpriteLibrary
+from ui.bubble import make_bubble
 from world.collision_map import TileCollision
 from world.level_data import LevelData, ObjectSpec
 from world.world import World
 
 logger = logging.getLogger(__name__)
 
-CHECKPOINT_SIZE = (settings.TILE_SIZE, settings.TILE_SIZE * 2)
+T = settings.TILE_SIZE
+CHECKPOINT_SIZE = (T, T * 2)
 # Object types that are handled elsewhere (or are just markers).
-IGNORED_KINDS = frozenset({"player_spawn"})
+IGNORED_KINDS = frozenset({"player_spawn", "backdrop", "boss_arena", "note"})
 
 
 def build_world(
     level: LevelData,
     sprites: SpriteLibrary,
     assets: AssetManager,
-    player_powered: bool,
+    power: int = 0,
     checkpoint_id: int | None = None,
     spawn_door: str | None = None,
+    found_pages: Collection[int] = (),
 ) -> World:
     player_animations = {
         PowerLevel.NONE: sprites.animations(sprite_specs.PLAYER),
@@ -51,20 +56,23 @@ def build_world(
     player = Player(
         level.objects_of("player_spawn")[0].midbottom,
         player_animations,
-        power=PowerLevel.POMEGRANATE if player_powered else PowerLevel.NONE,
+        power=PowerLevel(max(0, min(2, int(power)))),
     )
     world = World(level, player, sprites, level.collision.copy())
     world.switch = SwitchController(
         level.get_float("switch_period", 0.0),
         str(level.properties.get("switch_start", "sun")),
     )
-    builder = _Builder(world, level, sprites, assets, checkpoint_id)
+    builder = _Builder(world, level, sprites, assets, checkpoint_id, found_pages)
     for spec in level.objects:
         builder.add(spec)
     world.switch.start(world)
 
     spawn = _resolve_spawn(world, level, checkpoint_id, spawn_door)
-    player.arrive_at(spawn)
+    if spawn_door and spawn_door in world.doors:
+        player.emerge_from(world.doors[spawn_door])
+    else:
+        player.arrive_at(spawn)
     return world
 
 
@@ -91,28 +99,41 @@ class _Builder:
         sprites: SpriteLibrary,
         assets: AssetManager,
         checkpoint_id: int | None,
+        found_pages: Collection[int],
     ) -> None:
         self._world = world
         self._level = level
         self._sprites = sprites
         self._assets = assets
         self._checkpoint_id = checkpoint_id
+        self._found_pages = set(found_pages)
         self._handlers: dict[str, Callable[[ObjectSpec], None]] = {
             "enemy": self._add_enemy,
             "coin": self._add_coin,
+            "page": self._add_page,
             "brick": self._add_brick,
             "question": self._add_question,
+            "switch_block": self._add_switch_block,
+            "switch_toggle": self._add_switch_toggle,
+            "crumble": self._add_crumble,
             "moving_platform": self._add_platform,
+            "pendulum": self._add_pendulum,
+            "wheel": self._add_wheel,
+            "lily_pad": self._add_lily_pad,
+            "carpet": self._add_carpet,
             "checkpoint": self._add_checkpoint,
             "goal": self._add_goal,
             "door": self._add_door,
             "camera_zone": self._add_camera_zone,
-            "switch_block": self._add_switch_block,
             "drum": self._add_drum,
             "spikes": self._add_spikes,
             "water": self._add_water,
             "fountain": self._add_fountain,
             "wind": self._add_wind,
+            "fire_lion": self._add_fire_lion,
+            "sign": self._add_sign,
+            "decor": self._add_decor,
+            "boss": self._add_boss,
         }
 
     def add(self, spec: ObjectSpec) -> None:
@@ -130,13 +151,14 @@ class _Builder:
     def _tile(self, name: str) -> pygame.Surface:
         image = self._level.named_tiles.get(name)
         if image is None:
-            image = placeholder_art.make_tile(name).convert_alpha()
+            image = make_tile(name).convert_alpha()
             self._level.named_tiles[name] = image
         return image
 
     def _cell(self, spec: ObjectSpec) -> tuple[int, int]:
-        return self._world.collision.tile_at(spec.rect.x, spec.rect.y)
+        return self._world.collision.tile_at(spec.rect.x + 1, spec.rect.y + 1)
 
+    # --- Enemies and collectibles --------------------------------------------------
     def _add_enemy(self, spec: ObjectSpec) -> None:
         self._world.enemies.append(create_enemy(spec, self._sprites))
 
@@ -145,50 +167,87 @@ class _Builder:
         midbottom = (center[0], center[1] + settings.ITEMS.coin_hitbox_size / 2)
         self._world.items.append(Coin(midbottom, self._sprites.animations(sprite_specs.COIN)))
 
-    def _add_brick(self, spec: ObjectSpec) -> None:
-        cell = self._cell(spec)
-        self._register_block(BrickBlock(cell, settings.TILE_SIZE, self._tile("brick")))
-
-    def _add_question(self, spec: ObjectSpec) -> None:
-        cell = self._cell(spec)
-        block = QuestionBlock(
-            cell,
-            settings.TILE_SIZE,
-            self._tile("question"),
-            self._tile("used_block"),
-            spec.get_str("contents", "coin").lower(),
+    def _add_page(self, spec: ObjectSpec) -> None:
+        index = spec.get_int("index", 0)
+        self._world.items.append(
+            Page(spec.rect.center, index, self._sprites.animations(sprite_specs.PAGE),
+                 already_found=index in self._found_pages)
         )
-        self._register_block(block)
 
-    def _register_block(self, block: BrickBlock | QuestionBlock) -> None:
+    # --- Blocks ------------------------------------------------------------------------
+    def _register_block(self, block: Block) -> None:
         self._world.blocks[block.cell] = block
         self._world.collision.set(*block.cell, TileCollision.SOLID)
+
+    def _add_brick(self, spec: ObjectSpec) -> None:
+        self._register_block(BrickBlock(self._cell(spec), T, self._tile("brick")))
+
+    def _add_question(self, spec: ObjectSpec) -> None:
+        contents = spec.get_str("contents", "coin").lower()
+        # Hidden blocks look like plain wall until bumped.
+        image_name = spec.get_str("look", "question")
+        block = QuestionBlock(self._cell(spec), T, self._tile(image_name), self._tile("used_block"), contents)
+        self._register_block(block)
 
     def _add_switch_block(self, spec: ObjectSpec) -> None:
         color = spec.get_str("color", "sun").lower()
         if color not in {"sun", "moon"}:
             raise ValueError(f"unknown switch block color {color!r}")
-        cell = self._cell(spec)
-        image = self._tile(f"{color}_block")
-        block = SwitchBlock(cell, settings.TILE_SIZE, image, self._tile("used_block"), color)
+        ghost = switch_outline(color == "sun").convert_alpha()
+        block = SwitchBlock(self._cell(spec), T, self._tile(f"{color}_block"), ghost, color)
         self._register_block(block)
         assert self._world.switch is not None
         self._world.switch.attach(block)
 
+    def _add_switch_toggle(self, spec: ObjectSpec) -> None:
+        self._register_block(SwitchToggleBlock(self._cell(spec), T, self._tile("question_star")))
+
+    def _add_crumble(self, spec: ObjectSpec) -> None:
+        self._register_block(CrumbleBlock(self._cell(spec), T, self._tile("crumble")))
+
+    # --- Platforms -----------------------------------------------------------------------
     def _add_platform(self, spec: ObjectSpec) -> None:
         horizontal = spec.get_str("axis", "horizontal").lower() != "vertical"
         distance = spec.get_float("distance", settings.PLATFORM_DEFAULT_DISTANCE_TILES)
+        rect = pygame.Rect(spec.rect.x, spec.rect.y, spec.rect.width, 16)
+        image = object_art.platform_strip(spec.get_str("style", "beam"), rect.width).convert_alpha()
         self._world.platforms.append(
             MovingPlatform(
-                spec.rect,
-                horizontal,
-                distance * settings.TILE_SIZE,
-                spec.get_float("speed", settings.PLATFORM_DEFAULT_SPEED),
-                self._tile("platform"),
-                reverse=spec.get_bool("reverse"),
+                rect, horizontal, distance * T, spec.get_float("speed", settings.PLATFORM_DEFAULT_SPEED),
+                image, reverse=spec.get_bool("reverse"),
             )
         )
 
+    def _add_pendulum(self, spec: ObjectSpec) -> None:
+        self._world.platforms.append(
+            PendulumPlatform(
+                (spec.rect.centerx, spec.rect.top), spec.rect.height,
+                spec.get_float("amplitude", 45.0), spec.get_float("period", 3.2),
+                width=spec.get_int("width", 64), phase=spec.get_float("phase", 0.0),
+            )
+        )
+
+    def _add_wheel(self, spec: ObjectSpec) -> None:
+        wheel = Wheel(
+            spec.rect.center, spec.rect.width / 2, spec.get_int("seats", 4),
+            spec.get_float("speed", 30.0), spec.get_str("style", "noria"), spec.get_int("seat_width", 56),
+        )
+        self._world.props.append(wheel)
+        self._world.platforms.extend(wheel.seats)
+
+    def _add_lily_pad(self, spec: ObjectSpec) -> None:
+        self._world.platforms.append(
+            LilyPad((spec.rect.centerx, spec.rect.top), max(40, spec.rect.width), spec.get_bool("flower"),
+                    spec.rect.x * 0.013)
+        )
+
+    def _add_carpet(self, spec: ObjectSpec) -> None:
+        points = list(spec.points) or [spec.rect.midtop, (spec.rect.right, spec.rect.top)]
+        self._world.platforms.append(
+            Carpet(points, spec.get_int("width", 96), spec.get_float("speed", 150.0))
+        )
+
+    # --- Triggers ------------------------------------------------------------------------
     def _add_checkpoint(self, spec: ObjectSpec) -> None:
         self._world.checkpoints.append(
             Checkpoint(
@@ -218,6 +277,7 @@ class _Builder:
     def _add_camera_zone(self, spec: ObjectSpec) -> None:
         self._world.camera_zones.append(pygame.Rect(spec.rect))
 
+    # --- Props -----------------------------------------------------------------------------
     def _add_drum(self, spec: ObjectSpec) -> None:
         self._world.props.append(Drum(spec.midbottom))
 
@@ -225,13 +285,14 @@ class _Builder:
         self._world.props.append(Spikes(spec.rect, spec.get_str("direction", "up")))
 
     def _add_water(self, spec: ObjectSpec) -> None:
-        self._world.props.append(Water(spec.rect))
+        color = (60, 130, 190) if spec.get_str("style", "pool") == "pool" else (40, 90, 120)
+        self._world.props.append(Water(spec.rect, color, reflective=spec.get_bool("reflective", True)))
 
     def _add_fountain(self, spec: ObjectSpec) -> None:
         self._world.props.append(
             Fountain(
                 spec.midbottom,
-                spec.rect.height / settings.TILE_SIZE,
+                spec.rect.height / T,
                 spec.get_float("on", 2.0),
                 spec.get_float("off", 1.5),
                 spec.get_float("phase", 0.0),
@@ -239,12 +300,41 @@ class _Builder:
         )
 
     def _add_wind(self, spec: ObjectSpec) -> None:
-        self._world.props.append(
-            WindZone(
-                spec.rect,
-                spec.get_float("strength", 120.0),
-                spec.get_float("on", 2.0),
-                spec.get_float("off", 1.5),
-                spec.get_float("phase", 0.0),
-            )
+        zone = WindZone(
+            spec.rect,
+            spec.get_float("strength", 120.0),
+            spec.get_float("on", 2.0),
+            spec.get_float("off", 1.5),
+            spec.get_float("phase", 0.0),
         )
+        self._world.props.append(zone)
+        self._world.wind_zones.append(zone)
+
+    def _add_fire_lion(self, spec: ObjectSpec) -> None:
+        lion = FireLion(
+            self._cell(spec),
+            1 if spec.get_str("facing", "right").lower() == "right" else -1,
+            spec.get_float("interval", 2.4),
+            spec.get_float("phase", 0.0),
+            spec.get_bool("arc"),
+        )
+        lion.register(self._world)
+        self._world.props.append(lion)
+
+    def _add_sign(self, spec: ObjectSpec) -> None:
+        text = spec.get_str("text", "...").replace("\\n", "\n")
+        font = self._assets.get_font(settings.SIGN_FONT_SIZE, "body")
+        self._world.props.append(Sign(spec.midbottom, make_bubble(font, text)))
+
+    def _add_decor(self, spec: ObjectSpec) -> None:
+        prop = create_decor(spec)
+        if prop is None:
+            raise ValueError(f"unknown decor style {spec.get_str('style')!r}")
+        self._world.props.append(prop)
+
+    def _add_boss(self, spec: ObjectSpec) -> None:
+        from entities.boss import Ifrit
+
+        arena = next(iter(self._level.objects_of("boss_arena")), None)
+        arena_rect = pygame.Rect(arena.rect) if arena is not None else self._level.pixel_rect
+        self._world.boss = Ifrit(spec.midbottom, arena_rect, self._sprites)

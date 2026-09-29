@@ -5,6 +5,8 @@ about score, audio, input devices or scenes: it just simulates and emits
 events. Built fresh by ``world_builder.build_world`` on every (re)spawn.
 """
 
+from typing import TYPE_CHECKING
+
 import pygame
 
 from core import settings
@@ -15,22 +17,29 @@ from entities.items import Coin, Item
 from entities.player import Player
 from entities.projectiles import Projectile
 from objects.block import Block
-from objects.moving_platform import MovingPlatform
+from objects.hazards import WindZone
+from objects.platforms import Platform
 from objects.prop import Prop
 from objects.switches import SwitchController
 from objects.triggers import Checkpoint, Door, Goal
+from rendering.art.tiles import make_debris
 from rendering.camera import Camera
-from rendering.placeholder_art import make_debris
+from rendering.lighting import Light
 from rendering.particles import ParticleSystem
 from rendering.sprite_library import SpriteLibrary
 from rendering.terrain import TerrainRenderer
 from rendering.themes import get_theme
-from world.collision_map import CollisionMap, TileCollision
 from world import interactions
+from world.collision_map import CollisionMap, TileCollision
 from world.level_data import LevelData
+
+if TYPE_CHECKING:
+    from entities.boss import Ifrit
 
 # Debris pieces fly out as (x direction, relative upward speed).
 DEBRIS_PATTERN = ((-1, 1.0), (1, 1.0), (-1, 0.6), (1, 0.6))
+# Lights further than this outside the view are skipped.
+LIGHT_MARGIN = 220
 
 
 class World:
@@ -47,11 +56,13 @@ class World:
         self.collision = collision
         self.events = EventQueue()
         self.particles = ParticleSystem()
-        self.dust_color = get_theme(level.theme).dust
+        self.theme = get_theme(level.theme)
+        self.dust_color = self.theme.dust
         self.terrain = TerrainRenderer(level)
         self.time = 0.0
         self.view = level.pixel_rect
         self.switch: SwitchController | None = None
+        self.boss: "Ifrit | None" = None
 
         self.enemies: list[Enemy] = []
         self.items: list[Item] = []
@@ -59,11 +70,12 @@ class World:
         self.effects: list[Effect] = []
         self.props: list[Prop] = []
         self.blocks: dict[tuple[int, int], Block] = {}
-        self.platforms: list[MovingPlatform] = []
+        self.platforms: list[Platform] = []
         self.checkpoints: list[Checkpoint] = []
         self.goals: list[Goal] = []
         self.doors: dict[str, Door] = {}
         self.camera_zones: list[pygame.Rect] = []
+        self.wind_zones: list[WindZone] = []
 
         # Set when the player finishes entering a door; the scene handles it.
         self.pending_door: Door | None = None
@@ -83,6 +95,10 @@ class World:
     def spawn_projectile(self, projectile: Projectile) -> None:
         self.projectiles.append(projectile)
 
+    def spawn_enemy(self, enemy: Enemy) -> None:
+        enemy.activated = True
+        self.enemies.append(enemy)
+
     def count_player_projectiles(self) -> int:
         return sum(projectile.friendly and projectile.alive for projectile in self.projectiles)
 
@@ -90,12 +106,7 @@ class World:
         return rect.colliderect(self.view.inflate(margin * 2, margin * 2))
 
     def wind_at(self, x: float, y: float) -> float:
-        point = pygame.Vector2(x, y)
-        return sum(
-            getattr(prop, "current", 0.0)
-            for prop in self.props
-            if prop.__class__.__name__ == "WindZone" and prop.rect.collidepoint(point)
-        )
+        return sum(zone.current for zone in self.wind_zones if zone.rect.collidepoint(x, y))
 
     def anything_overlaps(self, rect: pygame.Rect) -> bool:
         if self.player.rect.colliderect(rect):
@@ -104,7 +115,12 @@ class World:
 
     def cells_under_player(self) -> list[tuple[int, int]]:
         body = self.player.body
-        return list(self.collision.cells_overlapping(body.left, body.bottom, body.right, body.bottom + 1))
+        if not body.on_ground:
+            return []
+        return [
+            (tx, ty)
+            for tx, ty, _kind in self.collision.cells_overlapping(body.left, body.bottom, body.right, body.bottom + 1)
+        ]
 
     def camera_bounds_for(self, point: tuple[float, float]) -> pygame.Rect:
         """Camera zones let a bonus room have its own scroll limits."""
@@ -122,12 +138,16 @@ class World:
         # Platforms move first so anything standing on them sees this step's
         # delta when it moves.
         for platform in self.platforms:
-            platform.update(dt)
+            platform.update(dt, self)
         for block in self.blocks.values():
             block.update(dt, self)
         for prop in self.props:
             if prop.alive:
                 prop.update(dt, self)
+        for checkpoint in self.checkpoints:
+            checkpoint.update(dt, self)
+        for goal in self.goals:
+            goal.update(dt, self)
 
         self.player.update(dt, self)
 
@@ -139,6 +159,8 @@ class World:
                 enemy.activated = True
             if enemy.activated:
                 enemy.update(dt, self)
+        if self.boss is not None:
+            self.boss.update(dt, self)
         for projectile in self.projectiles:
             if projectile.alive:
                 projectile.update(dt, self)
@@ -168,26 +190,33 @@ class World:
         self.effects = [effect for effect in self.effects if effect.alive]
 
     def _projectile_collisions(self) -> None:
+        player = self.player
         for projectile in self.projectiles:
             if not projectile.alive:
                 continue
             if projectile.friendly:
+                direction = 1 if projectile.body.velocity.x >= 0 else -1
+                if self.boss is not None and self.boss.hit_by_star(projectile.rect, self, direction):
+                    projectile.expire(self)
+                    continue
                 for enemy in self.enemies:
                     if enemy.is_dangerous and projectile.rect.colliderect(enemy.rect):
-                        direction = 1 if projectile.body.velocity.x >= 0 else -1
                         if enemy.on_starred(self, direction):
                             projectile.expire(self)
                             break
-            elif self.player.is_controllable and projectile.rect.colliderect(self.player.rect):
+            elif player.can_be_hurt and projectile.rect.colliderect(player.rect.inflate(-4, -4)):
                 projectile.expire(self)
-                self.player.take_damage(self)
+                player.take_damage(self)
 
     def _touch_props(self) -> None:
         if not self.player.is_controllable:
             return
+        player_rect = self.player.rect
         for prop in self.props:
-            if prop.alive and prop.touchable and self.player.rect.colliderect(prop.touch_rect()):
+            if prop.alive and prop.touchable and player_rect.colliderect(prop.touch_rect()):
                 prop.on_touch(self.player, self)
+                if not self.player.is_controllable:
+                    return
 
     # --- Blocks -----------------------------------------------------------------
     def bump_blocks(self, cells: list[tuple[int, int]], player: Player) -> None:
@@ -203,7 +232,7 @@ class World:
         """Knock out enemies and collect coins sitting on top of a bumped block."""
         above = pygame.Rect(block_rect.x, block_rect.y - block_rect.height // 2, block_rect.width, block_rect.height // 2)
         for enemy in self.enemies:
-            if enemy.is_dangerous and enemy.rect.colliderect(above):
+            if enemy.is_dangerous and enemy.bumpable and enemy.rect.colliderect(above):
                 direction = 1 if enemy.body.centerx >= block_rect.centerx else -1
                 enemy.knock_out(self, direction)
         for item in self.items:
@@ -225,9 +254,26 @@ class World:
         door = self.doors.get(door_name)
         if door is None:
             return False
-        self.player.arrive_at(door.arrival_point)
+        self.player.emerge_from(door)
         self.pending_door = None
         return True
+
+    # --- Lights -----------------------------------------------------------------
+    def lights(self) -> list[Light]:
+        """Every light source near the view, for the night lighting pass."""
+        area = self.view.inflate(LIGHT_MARGIN * 2, LIGHT_MARGIN * 2)
+        sources: list[Light] = []
+        sources += self.player.lights()
+        for group in (self.props, self.platforms, self.checkpoints, self.goals):
+            for thing in group:
+                sources += thing.lights()
+        for group in (self.items, self.enemies, self.projectiles):
+            for entity in group:
+                if entity.rect.colliderect(area):
+                    sources += entity.lights()
+        if self.boss is not None:
+            sources += self.boss.lights()
+        return [light for light in sources if area.collidepoint(light.x, light.y)]
 
     # --- Draw -------------------------------------------------------------------
     def draw(self, surface: pygame.Surface, camera: Camera) -> None:
@@ -238,22 +284,30 @@ class World:
             if prop.layer == "back" and prop.rect.colliderect(view):
                 prop.draw(surface, camera)
         for checkpoint in self.checkpoints:
-            checkpoint.draw(surface, camera)
+            if checkpoint.rect.colliderect(view.inflate(64, 64)):
+                checkpoint.draw(surface, camera)
         for goal in self.goals:
             goal.draw(surface, camera)
+        if self.boss is not None:
+            self.boss.draw_back(surface, camera)
         # Items before blocks, so power-ups appear to rise out of the block.
         for item in self.items:
-            item.draw(surface, camera)
+            if item.rect.colliderect(view):
+                item.draw(surface, camera)
         for block in self.blocks.values():
             if block.rect.colliderect(view):
                 block.draw(surface, camera)
         for platform in self.platforms:
-            platform.draw(surface, camera)
+            if platform.rect.colliderect(view.inflate(160, 160)):
+                platform.draw(surface, camera)
         for prop in self.props:
             if prop.layer == "mid" and prop.rect.colliderect(view):
                 prop.draw(surface, camera)
         for enemy in self.enemies:
-            enemy.draw(surface, camera)
+            if enemy.rect.colliderect(view.inflate(64, 64)):
+                enemy.draw(surface, camera)
+        if self.boss is not None:
+            self.boss.draw(surface, camera)
         for projectile in self.projectiles:
             if projectile.rect.colliderect(view):
                 projectile.draw(surface, camera)
@@ -265,3 +319,10 @@ class World:
                 prop.draw(surface, camera)
         self.particles.draw(surface, camera.offset, front=True)
         self.terrain.draw_front(surface, camera)
+
+    def draw_overlays(self, surface: pygame.Surface, camera: Camera) -> None:
+        """Things drawn after lighting so they stay readable (sign bubbles)."""
+        for prop in self.props:
+            draw_overlay = getattr(prop, "draw_overlay", None)
+            if draw_overlay is not None:
+                draw_overlay(surface, camera)

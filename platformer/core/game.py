@@ -7,8 +7,8 @@ from core import settings
 from core.assets import AssetManager
 from core.context import GameContext
 from core.input import InputState
+from core.save import SaveManager
 from rendering.sprite_library import SpriteLibrary
-from scenes.menu_scene import MenuScene
 from scenes.scene_manager import SceneManager
 from ui.debug_overlay import DebugOverlay
 from world.level_loader import LevelLoader
@@ -23,25 +23,42 @@ class Game:
 
     def __init__(self) -> None:
         pygame.display.set_caption(settings.WINDOW_TITLE)
-        self._screen = pygame.display.set_mode(
-            (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
-        )
+        self._save = SaveManager()
+        options = self._save.data.options
+        self._screen = self._create_window(options.fullscreen)
         self._clock = pygame.time.Clock()
 
         assets = AssetManager(settings.ASSETS_DIR)
         self._scenes = SceneManager()
         self._input = InputState()
         self._debug_overlay = DebugOverlay()
+        self._audio = AudioManager(assets)
+        self._audio.set_volumes(options.music_volume, options.sfx_volume)
         self._context = GameContext(
             assets=assets,
-            audio=AudioManager(assets),
+            audio=self._audio,
             input=self._input,
             sprites=SpriteLibrary(assets),
             levels=LevelLoader(settings.MAPS_DIR),
             debug=self._debug_overlay,
             scenes=self._scenes,
+            save=self._save,
         )
-        self._scenes.push(MenuScene(self._context))
+        from scenes.title_scene import TitleScene
+
+        self._scenes.push(TitleScene(self._context))
+
+    @staticmethod
+    def _create_window(fullscreen: bool) -> pygame.Surface:
+        # SCALED keeps the logical 960x540 resolution and lets SDL scale it
+        # (with letterboxing) to any window size or to the whole screen.
+        flags = pygame.SCALED | pygame.RESIZABLE
+        if fullscreen:
+            flags |= pygame.FULLSCREEN
+        try:
+            return pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), flags, vsync=1)
+        except pygame.error:
+            return pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), flags)
 
     def run(self) -> None:
         # Reset the clock so time spent loading isn't counted as the first frame.
@@ -54,6 +71,7 @@ class Game:
             self._handle_events()
             self._update(frame_time)
             self._draw()
+        self._save.save()
 
     def _handle_events(self) -> None:
         events = pygame.event.get()
@@ -63,8 +81,16 @@ class Game:
                 self._scenes.quit()
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_F1:
                 self._debug_overlay.toggle()
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                self.toggle_fullscreen()
             else:
                 self._scenes.handle_event(event)
+
+    def toggle_fullscreen(self) -> None:
+        options = self._save.data.options
+        options.fullscreen = not options.fullscreen
+        pygame.display.toggle_fullscreen()
+        self._save.save()
 
     def _update(self, frame_time: float) -> None:
         # Split the frame into equal sub-steps no longer than MAX_UPDATE_STEP.
@@ -76,6 +102,7 @@ class Game:
             # Key presses are seen by the first sub-step only.
             self._input.end_step()
 
+        self._audio.update()
         self._debug_overlay.update(frame_time, self._clock.get_fps())
 
     def _draw(self) -> None:

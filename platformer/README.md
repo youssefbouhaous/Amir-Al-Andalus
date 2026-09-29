@@ -34,6 +34,22 @@ pip install -r requirements.txt
 python main.py
 ```
 
+With the local virtual environment active, `uv run --active main.py` also
+works. Install all packages in `requirements.txt`, including NumPy for the
+procedural music and sound effects.
+
+The title screen offers **Continue** after you start a journey. Completed
+levels, best times, scores, and collected pages are saved when the results
+screen appears. Continue starts the first unfinished level with fresh lives;
+it does not restore a position within a level. **New Journey** asks before
+replacing saved progress and keeps your options.
+
+Run the automated scene-flow and audio checks without opening a window:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 Regenerate the tileset and the six campaign maps (overwrites `.tmx` files):
 
 ```bash

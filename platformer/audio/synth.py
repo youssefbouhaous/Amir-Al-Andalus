@@ -1,103 +1,375 @@
-"""Tiny chiptune-style sound synthesis for placeholder sound effects.
+"""Procedural sound effects.
 
-Generates square-wave blips and noise bursts directly into a sample buffer,
-so the game has audible feedback without shipping any sound files. Drop a
-``.wav``/``.ogg`` with the same name into ``assets/sounds`` to replace one.
+Every sound is built from a few numpy primitives (pitch sweeps, plucked
+strings, band-limited noise, bells, drum hits) shaped with envelopes, and
+tuned to the same Hijaz scale as the music so pickups sound "in key".
+Drop a ``.wav``/``.ogg`` with the same name into ``assets/sounds`` to replace
+any of them.
 """
 
 import logging
-import random
-from array import array
-from collections.abc import Callable, Sequence
+import math
+from collections.abc import Callable
 
+import numpy as np
 import pygame
 
-from core.settings import SYNTH_AMPLITUDE
+from audio import music
+from audio.music import SR, bell, doum, midi_hz, pluck, tek
 
 logger = logging.getLogger(__name__)
 
-SIGNED_16_BIT = -16
-MAX_SAMPLE = 32767
-# Fixed seed so noise-based sounds are identical every run.
-NOISE_SEED = 1234
+_rng = np.random.default_rng(1234)
 
-Note = tuple[float, float]  # (frequency Hz, duration s); frequency 0 = rest
+# Hijaz on D (the game's home key).
+D5, EB5, FS5, G5, A5, BB5, C6, D6 = 74, 75, 78, 79, 81, 82, 84, 86
 
 
-def _render(
-    segments: Sequence[tuple[float, float, float]], noise: bool = False
-) -> pygame.mixer.Sound | None:
-    """Render (start_freq, end_freq, duration) segments with a decay envelope."""
+def _t(duration: float) -> np.ndarray:
+    return np.arange(int(duration * SR)) / SR
+
+
+def _env(t: np.ndarray, attack: float, decay: float) -> np.ndarray:
+    return np.clip(t / max(attack, 1e-4), 0, 1) * np.exp(-t * decay)
+
+
+def _sweep(f0: float, f1: float, duration: float, shape: str = "sine", curve: float = 1.0) -> np.ndarray:
+    t = _t(duration)
+    progress = (t / duration) ** curve
+    freq = f0 * (f1 / f0) ** progress
+    phase = np.cumsum(freq) / SR * math.tau
+    if shape == "square":
+        return np.tanh(np.sin(phase) * 4) * 0.6
+    if shape == "tri":
+        return 2 / math.pi * np.arcsin(np.sin(phase))
+    return np.sin(phase)
+
+
+def _noise(duration: float, low: float, high: float) -> np.ndarray:
+    return music._band_noise(int(duration * SR), low, high, _rng)
+
+
+def _mix(*parts: tuple[np.ndarray, float]) -> np.ndarray:
+    # Delayed notes still need room for their entire tail.
+    length = max(int(offset * SR) + len(part) for part, offset in parts)
+    out = np.zeros(length)
+    for part, offset in parts:
+        start = int(offset * SR)
+        end = min(length, start + len(part))
+        if start < length:
+            out[start:end] += part[: end - start]
+    return out
+
+
+def _seq(notes: list[tuple[float, float]], voice: Callable[[float, float], np.ndarray], gap: float | None = None) -> np.ndarray:
+    parts = []
+    time = 0.0
+    for pitch, duration in notes:
+        parts.append((voice(midi_hz(pitch), duration), time))
+        time += gap if gap is not None else duration * 0.8
+    return _mix(*parts)
+
+
+def _qanun(freq: float, duration: float) -> np.ndarray:
+    return pluck(freq, duration + 0.4, 0.95, _rng, 0.995)
+
+
+def _oud(freq: float, duration: float) -> np.ndarray:
+    return pluck(freq, duration + 0.3, 0.6, _rng)
+
+
+def _chime(freq: float, duration: float) -> np.ndarray:
+    return bell(freq, duration + 1.0) * 0.6
+
+
+# --- Recipes -----------------------------------------------------------------------
+def _jump() -> np.ndarray:
+    t = _t(0.16)
+    return _sweep(260, 640, 0.16, "tri", 0.6) * _env(t, 0.005, 14) * 0.5 + _noise(0.16, 800, 3000) * _env(t, 0.002, 30) * 0.12
+
+
+def _wall_jump() -> np.ndarray:
+    t = _t(0.18)
+    return _sweep(340, 820, 0.18, "tri", 0.5) * _env(t, 0.003, 12) * 0.45 + _noise(0.18, 400, 2000) * _env(t, 0.001, 25) * 0.25
+
+
+def _land() -> np.ndarray:
+    t = _t(0.14)
+    return _noise(0.14, 60, 900) * _env(t, 0.001, 28) * 0.5 + _sweep(140, 60, 0.14) * _env(t, 0.001, 22) * 0.4
+
+
+def _coin() -> np.ndarray:
+    return _seq([(A5 + 12, 0.07), (D6 + 12, 0.25)], _qanun, gap=0.06) * 0.6
+
+
+def _page() -> np.ndarray:
+    arpeggio = _seq([(D5, 0.1), (FS5, 0.1), (A5, 0.1), (D6, 0.1), (FS5 + 12, 0.4)], _chime, gap=0.07)
+    shimmer = _noise(1.2, 5000, 12000) * _env(_t(1.2), 0.2, 3) * 0.08
+    return _mix((arpeggio * 0.7, 0.0), (shimmer, 0.0))
+
+
+def _stomp(level: int = 1) -> Callable[[], np.ndarray]:
+    def make() -> np.ndarray:
+        t = _t(0.18)
+        pitch = 1.0 + 0.12 * (level - 1)
+        thump = _sweep(220 * pitch, 90, 0.18) * _env(t, 0.001, 18) * 0.7
+        pop = _sweep(600 * pitch, 1200 * pitch, 0.06, "tri") * _env(_t(0.06), 0.001, 40) * 0.3
+        return _mix((thump, 0.0), (pop, 0.0))
+    return make
+
+
+def _kick() -> np.ndarray:
+    t = _t(0.3)
+    return _sweep(900, 180, 0.3, "tri", 0.7) * _env(t, 0.002, 9) * 0.45 + _noise(0.3, 1000, 5000) * _env(t, 0.001, 40) * 0.2
+
+
+def _bump() -> np.ndarray:
+    t = _t(0.12)
+    return _sweep(170, 80, 0.12) * _env(t, 0.001, 25) * 0.7 + _noise(0.12, 100, 1200) * _env(t, 0.001, 40) * 0.3
+
+
+def _break() -> np.ndarray:
+    t = _t(0.45)
+    crash = _noise(0.45, 150, 5000) * _env(t, 0.001, 9) * 0.6
+    knocks = _mix(*[(tek(_rng) * 0.4, k * 0.05) for k in range(4)])
+    return _mix((crash, 0.0), (knocks, 0.02))
+
+
+def _crumble() -> np.ndarray:
+    t = _t(0.5)
+    rumble = _noise(0.5, 80, 1500) * _env(t, 0.03, 7) * 0.5
+    return _mix((rumble, 0.0), (tek(_rng, True) * 0.3, 0.05), (tek(_rng, True) * 0.25, 0.14))
+
+
+def _item_appear() -> np.ndarray:
+    return _seq([(D5, 0.06), (EB5, 0.06), (FS5, 0.06), (G5, 0.06), (A5, 0.2)], _qanun, gap=0.055) * 0.5
+
+
+def _powerup() -> np.ndarray:
+    notes = [(D5, 0.07), (FS5, 0.07), (A5, 0.07), (D6, 0.07), (FS5 + 12, 0.07), (A5 + 12, 0.3)]
+    sparkle = _noise(0.8, 6000, 13000) * _env(_t(0.8), 0.05, 5) * 0.12
+    return _mix((_seq(notes, _qanun, gap=0.06) * 0.55, 0.0), (sparkle, 0.1))
+
+
+def _star_power() -> np.ndarray:
+    notes = [(A5, 0.06), (C6, 0.06), (D6, 0.06), (FS5 + 12, 0.06), (A5 + 12, 0.06), (D6 + 12, 0.5)]
+    return _mix((_seq(notes, _chime, gap=0.05) * 0.5, 0.0), (_seq(notes, _qanun, gap=0.05) * 0.3, 0.0))
+
+
+def _extra_life() -> np.ndarray:
+    notes = [(A5, 0.08), (BB5, 0.08), (A5, 0.08), (FS5, 0.08), (G5, 0.08), (D6, 0.35)]
+    return _seq(notes, _qanun, gap=0.09) * 0.6
+
+
+def _hurt() -> np.ndarray:
+    t = _t(0.4)
+    wobble = 1 + 0.08 * np.sin(math.tau * 30 * t)
+    phase = np.cumsum(700 * np.exp(-t * 4) * wobble + 150) / SR * math.tau
+    return np.tanh(np.sin(phase) * 3) * _env(t, 0.002, 6) * 0.35
+
+
+def _death() -> np.ndarray:
+    notes = [(A5, 0.14), (G5, 0.14), (FS5, 0.14), (EB5, 0.18), (D5, 0.6)]
+    return _seq(notes, _oud, gap=0.15) * 0.7
+
+
+def _checkpoint() -> np.ndarray:
+    whoosh = _noise(0.5, 300, 3000) * _env(_t(0.5), 0.15, 8) * 0.15
+    return _mix((whoosh, 0.0), (_seq([(FS5, 0.1), (A5, 0.1), (D6, 0.5)], _chime, gap=0.09) * 0.6, 0.08))
+
+
+def _door() -> np.ndarray:
+    t = _t(0.5)
+    return _sweep(520, 110, 0.5, "tri", 0.8) * _env(t, 0.01, 4) * 0.35 + _noise(0.5, 200, 1800) * _env(t, 0.05, 6) * 0.15
+
+
+def _spring() -> np.ndarray:
+    t = _t(0.45)
+    boing = _sweep(90, 300, 0.45, "sine", 0.4) * (1 + 0.3 * np.sin(math.tau * 18 * t)) * _env(t, 0.002, 6) * 0.5
+    return _mix((doum(_rng, 1.1) * 0.8, 0.0), (boing, 0.0))
+
+
+def _switch() -> np.ndarray:
+    return _mix(
+        (bell(midi_hz(50), 1.4) * 0.5, 0.0),
+        (bell(midi_hz(62), 1.2) * 0.25, 0.0),
+        (tek(_rng) * 0.4, 0.0),
+    )
+
+
+def _tick() -> np.ndarray:
+    return _mix((tek(_rng, True) * 0.5, 0.0), (bell(midi_hz(93), 0.2) * 0.15, 0.0))
+
+
+def _splash() -> np.ndarray:
+    t = _t(0.6)
+    plop = _sweep(500, 180, 0.6) * _env(t, 0.001, 22) * 0.25
+    return _noise(0.6, 300, 7000) * _env(t, 0.005, 6) * 0.45 + plop
+
+
+def _fire() -> np.ndarray:
+    t = _t(0.35)
+    return _noise(0.35, 100, 2500) * _env(t, 0.02, 7) * 0.4 + _sweep(160, 90, 0.35) * _env(t, 0.01, 8) * 0.2
+
+
+def _screech() -> np.ndarray:
+    t = _t(0.3)
+    freq = 2200 + 500 * np.sin(math.tau * 14 * t)
+    phase = np.cumsum(freq) / SR * math.tau
+    return np.sin(phase) * _env(t, 0.01, 10) * 0.15 + _noise(0.3, 3000, 8000) * _env(t, 0.01, 12) * 0.1
+
+
+def _flutter() -> np.ndarray:
+    t = _t(0.5)
+    flaps = (0.5 + 0.5 * np.sign(np.sin(math.tau * 22 * t)))
+    return _noise(0.5, 300, 2500) * flaps * _env(t, 0.005, 5) * 0.3
+
+
+def _wind() -> np.ndarray:
+    t = _t(1.2)
+    swell = np.sin(np.pi * np.clip(t / 1.2, 0, 1)) ** 2
+    return _noise(1.2, 200, 1400) * swell * 0.3
+
+
+def _carpet() -> np.ndarray:
+    notes = [(D5 + 12, 0.1), (A5, 0.1), (FS5, 0.1), (D5, 0.4)]
+    return _mix((_seq(notes, _chime, gap=0.07) * 0.4, 0.0), (_noise(0.8, 4000, 10000) * _env(_t(0.8), 0.1, 4) * 0.1, 0.0))
+
+
+def _throw() -> np.ndarray:
+    t = _t(0.2)
+    return _noise(0.2, 1500, 7000) * _env(t, 0.01, 18) * 0.25 + _sweep(900, 1800, 0.2, "tri") * _env(t, 0.002, 20) * 0.15
+
+
+def _clink() -> np.ndarray:
+    return bell(midi_hz(96), 0.3) * 0.25
+
+
+def _roar() -> np.ndarray:
+    t = _t(1.3)
+    growl = np.tanh(_sweep(90, 55, 1.3, "square") * (1 + 0.5 * np.sin(math.tau * 27 * t)) * 2) * _env(t, 0.08, 2.2) * 0.45
+    return growl + _noise(1.3, 80, 1200) * _env(t, 0.05, 2.5) * 0.35
+
+
+def _boss_hit() -> np.ndarray:
+    t = _t(0.5)
+    return _mix((doum(_rng, 0.7) * 0.9, 0.0), (bell(midi_hz(64), 0.6) * 0.3, 0.0), (_noise(0.5, 500, 6000) * _env(t, 0.001, 12) * 0.3, 0.0))
+
+
+def _slam() -> np.ndarray:
+    t = _t(0.8)
+    return _sweep(80, 35, 0.8) * _env(t, 0.001, 5) * 0.9 + _noise(0.8, 40, 900) * _env(t, 0.001, 6) * 0.5
+
+
+def _boss_defeated() -> np.ndarray:
+    t = _t(2.5)
+    rumble = _noise(2.5, 40, 1500) * _env(t, 0.05, 1.6) * 0.5
+    return _mix((rumble, 0.0), (_roar() * 0.6, 0.0), (bell(midi_hz(62), 2.0) * 0.4, 0.6))
+
+
+def _sword() -> np.ndarray:
+    chord = _mix(*[(bell(midi_hz(p), 3.0) * 0.25, i * 0.05) for i, p in enumerate((62, 69, 74, 78, 81, 86))])
+    return chord
+
+
+def _menu_move() -> np.ndarray:
+    return _qanun(midi_hz(A5), 0.05) * 0.35
+
+
+def _menu_select() -> np.ndarray:
+    return _seq([(FS5, 0.05), (A5, 0.15)], _qanun, gap=0.05) * 0.45
+
+
+def _menu_back() -> np.ndarray:
+    return _seq([(A5, 0.05), (FS5, 0.15)], _qanun, gap=0.05) * 0.4
+
+
+def _pause() -> np.ndarray:
+    return _seq([(A5, 0.05), (A5 - 12, 0.12)], _oud, gap=0.06) * 0.5
+
+
+def _page_turn() -> np.ndarray:
+    t = _t(0.35)
+    return _noise(0.35, 1500, 9000) * np.abs(np.sin(math.tau * 5 * t)) * _env(t, 0.02, 7) * 0.25
+
+
+def _level_complete() -> np.ndarray:
+    track = music.render_jingle("fanfare")
+    return track[:, 0] / 32767.0 if track is not None else np.zeros(1)
+
+
+SOUND_RECIPES: dict[str, Callable[[], np.ndarray]] = {
+    "jump": _jump,
+    "wall_jump": _wall_jump,
+    "land": _land,
+    "coin": _coin,
+    "page": _page,
+    "stomp": _stomp(1),
+    **{f"stomp{n}": _stomp(n) for n in range(1, 9)},
+    "kick": _kick,
+    "bump": _bump,
+    "break": _break,
+    "crumble": _crumble,
+    "item_appear": _item_appear,
+    "powerup": _powerup,
+    "star_power": _star_power,
+    "extra_life": _extra_life,
+    "hurt": _hurt,
+    "death": _death,
+    "checkpoint": _checkpoint,
+    "level_complete": _level_complete,
+    "door": _door,
+    "spring": _spring,
+    "switch": _switch,
+    "tick": _tick,
+    "splash": _splash,
+    "fire": _fire,
+    "screech": _screech,
+    "flutter": _flutter,
+    "wind": _wind,
+    "carpet": _carpet,
+    "throw": _throw,
+    "clink": _clink,
+    "roar": _roar,
+    "boss_hit": _boss_hit,
+    "slam": _slam,
+    "boss_defeated": _boss_defeated,
+    "sword": _sword,
+    "menu_move": _menu_move,
+    "menu_select": _menu_select,
+    "menu_back": _menu_back,
+    "pause": _pause,
+    "page_turn": _page_turn,
+}
+
+
+def to_sound(samples: np.ndarray) -> pygame.mixer.Sound | None:
+    """Mono or stereo float/int16 samples -> a Sound matching the mixer format."""
     init = pygame.mixer.get_init()
     if init is None:
         return None
-    rate, sample_format, channels = init
-    if sample_format != SIGNED_16_BIT:
-        logger.info("Mixer format %s unsupported by synth; sounds disabled", sample_format)
+    _rate, sample_format, channels = init
+    if sample_format != -16:
+        logger.info("Mixer format %s unsupported by synth; sound disabled", sample_format)
         return None
-
-    rng = random.Random(NOISE_SEED)
-    samples = array("h")
-    for start_freq, end_freq, duration in segments:
-        count = max(1, int(rate * duration))
-        phase = 0.0
-        for index in range(count):
-            progress = index / count
-            envelope = (1.0 - progress) ** 1.5
-            if noise:
-                value = rng.uniform(-1.0, 1.0)
-            else:
-                frequency = start_freq + (end_freq - start_freq) * progress
-                phase = (phase + frequency / rate) % 1.0
-                value = 1.0 if phase < 0.5 else -1.0
-                if frequency <= 0:
-                    value = 0.0
-            sample = int(value * envelope * SYNTH_AMPLITUDE * MAX_SAMPLE)
-            samples.extend([sample] * channels)
-    return pygame.mixer.Sound(buffer=samples.tobytes())
-
-
-def _sweep(start: float, end: float, duration: float) -> Callable[[], pygame.mixer.Sound | None]:
-    return lambda: _render([(start, end, duration)])
-
-
-def _notes(notes: Sequence[Note]) -> Callable[[], pygame.mixer.Sound | None]:
-    return lambda: _render([(freq, freq, duration) for freq, duration in notes])
-
-
-def _noise(duration: float) -> Callable[[], pygame.mixer.Sound | None]:
-    return lambda: _render([(0.0, 0.0, duration)], noise=True)
-
-
-# Melodic sounds use the Hijaz scale (D Eb F# G A Bb C), the augmented-second
-# colour typical of Andalusian and Arabic music.
-D5, EB5, FS5, G5, A5, BB5, C6, D6 = 587, 622, 740, 784, 880, 932, 1047, 1175
-A4 = 440
-
-SOUND_RECIPES: dict[str, Callable[[], pygame.mixer.Sound | None]] = {
-    "jump": _sweep(320, 720, 0.14),
-    "coin": _notes([(A5, 0.05), (D6, 0.2)]),
-    "stomp": _sweep(420, 140, 0.12),
-    "kick": _sweep(700, 200, 0.15),
-    "bump": _sweep(160, 90, 0.08),
-    "break": _noise(0.18),
-    "item_appear": _notes([(D5, 0.06), (EB5, 0.06), (FS5, 0.06), (G5, 0.12)]),
-    "powerup": _notes([(D5, 0.06), (EB5, 0.06), (FS5, 0.06), (G5, 0.06), (A5, 0.06), (D6, 0.14)]),
-    "extra_life": _notes([(A5, 0.08), (BB5, 0.08), (A5, 0.08), (FS5, 0.08), (G5, 0.08), (D6, 0.2)]),
-    "hurt": _sweep(700, 180, 0.3),
-    "death": _notes([(A5, 0.13), (G5, 0.13), (FS5, 0.13), (EB5, 0.16), (D5, 0.35)]),
-    "checkpoint": _notes([(FS5, 0.08), (A5, 0.08), (D6, 0.2)]),
-    "level_complete": _notes([
-        (D5, 0.1), (EB5, 0.1), (FS5, 0.1), (G5, 0.1), (A5, 0.14),
-        (BB5, 0.1), (A5, 0.1), (G5, 0.1), (FS5, 0.1), (D6, 0.4),
-    ]),
-    "door": _sweep(520, 110, 0.4),
-    "menu_move": _notes([(A5, 0.04)]),
-    "menu_select": _notes([(FS5, 0.05), (A5, 0.08)]),
-    "pause": _notes([(A5, 0.05), (A4, 0.08)]),
-}
+    if samples.dtype != np.int16:
+        samples = (np.clip(samples, -1.0, 1.0) * 32767).astype(np.int16)
+    if samples.ndim == 1:
+        samples = np.repeat(samples[:, None], channels, axis=1)
+    elif samples.shape[1] != channels:
+        samples = samples[:, :1] if channels == 1 else np.repeat(samples[:, :1], channels, axis=1)
+    if channels == 1:
+        samples = samples[:, 0]
+    return pygame.sndarray.make_sound(np.ascontiguousarray(samples))
 
 
 def synthesize(name: str) -> pygame.mixer.Sound | None:
     recipe = SOUND_RECIPES.get(name)
-    return recipe() if recipe is not None else None
+    if recipe is None:
+        return None
+    samples = recipe()
+    fade = min(len(samples), int(0.01 * SR))
+    if fade:
+        samples = samples.copy()
+        samples[-fade:] *= np.linspace(1, 0, fade)
+    return to_sound(samples)

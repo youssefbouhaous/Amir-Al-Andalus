@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from audio.audio_manager import AudioManager
 from core.assets import AssetManager
 from core.input import InputState
+from core.save import SaveManager
 from rendering.sprite_library import SpriteLibrary
 from ui.debug_overlay import DebugOverlay
 from world.level_loader import LevelLoader
@@ -27,3 +28,4 @@ class GameContext:
     levels: LevelLoader
     debug: DebugOverlay
     scenes: "SceneManager"
+    save: SaveManager
