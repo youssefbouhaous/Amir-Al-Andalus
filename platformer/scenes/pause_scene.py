@@ -36,7 +36,7 @@ class PauseScene(Scene):
             [
                 ("Resume", self._resume),
                 ("Restart from checkpoint", self._restart),
-                ("Main Menu", self._main_menu),
+                ("Level Select" if game_scene.session.replay else "Main Menu", self._main_menu),
             ],
             (settings.SCREEN_WIDTH // 2, MENU_CENTER_Y),
             context.audio,
@@ -59,6 +59,11 @@ class PauseScene(Scene):
         self.context.scenes.pop()
 
     def _main_menu(self) -> None:
+        if self._game_scene.session.replay:
+            from scenes.level_select_scene import LevelSelectScene
+
+            self.context.scenes.reset(LevelSelectScene(self.context, self._game_scene.session.level_file))
+            return
         from scenes.menu_scene import MenuScene
 
         self.context.scenes.reset(MenuScene(self.context))

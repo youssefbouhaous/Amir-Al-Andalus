@@ -44,6 +44,8 @@ class GameSession:
     level_enemies: int = 0
     pages_found: set[int] = field(default_factory=set)
     total_deaths: int = 0
+    # A standalone level-select run returns to the selection screen.
+    replay: bool = False
 
     @property
     def player_powered(self) -> bool:

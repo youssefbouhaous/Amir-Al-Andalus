@@ -39,7 +39,10 @@ class TallyScene(MessageScene):
         save = self.context.save
         record = save.data.record(self._level.file_name)
         record.completed = True
-        record.best_score = max(record.best_score, session.score)
+        if session.replay:
+            record.best_replay_score = max(record.best_replay_score or 0, session.score)
+        else:
+            record.best_score = max(record.best_score, session.score)
         if record.best_time is None or session.level_time < record.best_time:
             record.best_time = session.level_time
         record.merge_pages(session.pages_found)
@@ -53,6 +56,11 @@ class TallyScene(MessageScene):
         from scenes.end_scenes import VictoryScene
         from scenes.level_intro_scene import LevelIntroScene
 
+        if self._session.replay:
+            from scenes.level_select_scene import LevelSelectScene
+
+            self.context.scenes.replace(LevelSelectScene(self.context, self._level.file_name))
+            return
         if self._next_level:
             self._session.enter_level(self._next_level)
             self.context.scenes.replace(LevelIntroScene(self.context, self._session))
@@ -77,4 +85,5 @@ class TallyScene(MessageScene):
             y = 229 + index * 39
             draw_text(surface, self._line_font, label, midleft=(center_x - 240, y))
             draw_text(surface, self._line_font, value, settings.GOLD_LIGHT, midright=(center_x + 240, y))
-        draw_text(surface, self._small_font, "Progress saved  -  Press Enter to continue", center=(center_x, 470))
+        prompt = "Progress saved  -  Enter: level select" if self._session.replay else "Progress saved  -  Press Enter to continue"
+        draw_text(surface, self._small_font, prompt, center=(center_x, 470))

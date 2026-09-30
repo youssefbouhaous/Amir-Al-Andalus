@@ -25,6 +25,8 @@ class LevelRecord:
     best_score: int = 0
     best_time: float | None = None
     pages: list[int] = field(default_factory=list)
+    # Standalone runs start at zero; journey scores can span several maps.
+    best_replay_score: int | None = None
 
     def merge_pages(self, pages: set[int]) -> None:
         self.pages = sorted(set(self.pages) | pages)
@@ -86,6 +88,8 @@ def _from_dict(raw: dict) -> SaveData:
             best_score=int(value.get("best_score", 0) or 0),
             best_time=float(best_time) if isinstance(best_time, (int, float)) else None,
             pages=sorted({int(page) for page in value.get("pages", []) if isinstance(page, int)}),
+            best_replay_score=(max(0, int(value["best_replay_score"]))
+                               if isinstance(value.get("best_replay_score"), int) else None),
         )
     options = raw.get("options") or {}
     defaults = Options()

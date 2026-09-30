@@ -56,10 +56,11 @@ class TitleScene(Scene):
         label = "New Journey" if data.has_progress else "Start Game"
         entries.extend([
             (label, self._new_game),
+            ("Level Select", self._level_select),
             ("Controls", self._show_controls),
             ("Quit", self.context.scenes.quit),
         ])
-        self._menu = Menu(entries, (settings.SCREEN_WIDTH // 2, 320), self.context.audio)
+        self._menu = Menu(entries, (settings.SCREEN_WIDTH // 2, 335), self.context.audio)
 
     def on_enter(self) -> None:
         self.context.audio.play_music(settings.MENU_MUSIC)
@@ -83,6 +84,11 @@ class TitleScene(Scene):
 
     def _show_controls(self) -> None:
         self._showing_controls = True
+
+    def _level_select(self) -> None:
+        from scenes.level_select_scene import LevelSelectScene
+
+        self.context.scenes.replace(LevelSelectScene(self.context))
 
     def _new_game(self) -> None:
         if not self.context.save.data.has_progress:
@@ -150,7 +156,7 @@ class TitleScene(Scene):
         if self._message:
             for index, line in enumerate(wrap_text(self._small_font, self._message, surface.get_width() - 64)[:2]):
                 draw_text(surface, self._small_font, line, settings.ERROR_TEXT_COLOR,
-                          center=(center_x, 470 + index * 26))
+                          center=(center_x, 490 + index * 22))
         else:
             draw_text(surface, self._small_font, "Up / Down to choose  -  Enter to play",
-                      center=(center_x, 486))
+                      center=(center_x, 512))

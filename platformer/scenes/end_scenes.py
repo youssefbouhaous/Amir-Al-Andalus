@@ -36,6 +36,7 @@ class LevelCompleteScene(MessageScene):
 
 class GameOverScene(MessageScene):
     def __init__(self, context: "GameContext", session: GameSession) -> None:
+        self._session = session
         super().__init__(
             context,
             "Game Over",
@@ -47,6 +48,11 @@ class GameOverScene(MessageScene):
         self.context.audio.stop_music()
 
     def on_continue(self) -> None:
+        if self._session.replay:
+            from scenes.level_select_scene import LevelSelectScene
+
+            self.context.scenes.reset(LevelSelectScene(self.context, self._session.level_file))
+            return
         from scenes.menu_scene import MenuScene
 
         self.context.scenes.reset(MenuScene(self.context))

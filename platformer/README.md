@@ -44,6 +44,14 @@ screen appears. Continue starts the first unfinished level with fresh lives;
 it does not restore a position within a level. **New Journey** asks before
 replacing saved progress and keeps your options.
 
+**Level Select** lets you revisit completed chapters or play the next unlocked
+chapter. Use Up/Down to choose, Left/Right to change pages, Enter to play, and
+Escape to return; mouse selection and gamepad navigation work too. Each chapter
+shows collected manuscript pages, best time, and a standalone replay-score record,
+with goals for missing pages and personal bests. Replay scores start at zero and
+are tracked separately from historical journey totals. Finishing a replay returns
+to Level Select, and better records/pages are saved without resetting your journey.
+
 Run the automated scene-flow and audio checks without opening a window:
 
 ```bash
