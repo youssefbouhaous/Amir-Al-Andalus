@@ -53,12 +53,21 @@ def build_world(
         PowerLevel.POMEGRANATE: sprites.animations(sprite_specs.PLAYER_POWERED),
         PowerLevel.STAR: sprites.animations(sprite_specs.PLAYER_STAR),
     }
+    acrobatics = str(level.properties.get("acrobatics", False)).lower() in ("true", "1", "yes")
+    if acrobatics:
+        from rendering.acrobatics_specs import PLAYER_SHEETS
+
+        player_animations = {
+            power: {**animations, **sprites.animations(PLAYER_SHEETS[int(power)])}
+            for power, animations in player_animations.items()
+        }
     player = Player(
         level.objects_of("player_spawn")[0].midbottom,
         player_animations,
         power=PowerLevel(max(0, min(2, int(power)))),
     )
     world = World(level, player, sprites, level.collision.copy())
+    player.acrobatics_enabled = acrobatics
     locked = str(level.properties.get("locked_moves") or "")
     player.locked_moves = frozenset(move.strip() for move in locked.split(",") if move.strip())
     world.switch = SwitchController(
@@ -170,6 +179,7 @@ class _Builder:
             # Book II
             "cracked": self._add_cracked,
             "ring": self._add_ring,
+            "grapple_hook": self._add_grapple_hook,
             "dash_lantern": self._add_dash_lantern,
             "updraft": self._add_updraft,
             "pound_plate": self._add_pound_plate,
@@ -389,6 +399,13 @@ class _Builder:
         for dx in range(max(1, spec.rect.width // T)):
             for dy in range(max(1, spec.rect.height // T)):
                 self._register_block(CrackedBlock((cell[0] + dx, cell[1] + dy), T, self._tile("cracked")))
+
+    def _add_grapple_hook(self, spec: ObjectSpec) -> None:
+        from objects.grapple_hook import GrappleHook
+
+        hook = GrappleHook(spec.rect.center)
+        self._world.grapple_hooks.append(hook)
+        self._world.props.append(hook)
 
     def _add_ring(self, spec: ObjectSpec) -> None:
         from objects.rings import Ring

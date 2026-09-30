@@ -52,6 +52,33 @@ with goals for missing pages and personal bests. Replay scores start at zero and
 are tracked separately from historical journey totals. Finishing a replay returns
 to Level Select, and better records/pages are saved without resetting your journey.
 
+### Courtyard of Wonders (optional)
+
+Open **Level Select**, go to the last page, and choose **Courtyard of Wonders**.
+It is available even on a new save and does not advance or complete the main journey.
+All 15 existing maps, their controls and their original animation frames are preserved.
+
+Only in this playground, the prince gains scarf grappling and ledge vaults, with
+new sand-slide, spinning launch, wall-kick and landing poses layered onto his rig:
+
+- **Tap Up / W in mid-air** near a golden rosette to grapple. Left/Right pumps the
+  swing; Jump launches, Dash releases into a dash, and Down drops. Up + Dash still
+  aims a normal upward dash. Hooks refill the air dash, like existing swing rings.
+- **Fall toward a ledge** to catch it. Keep pushing toward it, or press Jump/Up to
+  vault; hold Down to drop. Low ceilings and hazardous ledges cannot be grabbed.
+- **Run + Down, then Jump** chains the sand slide into a scarf-trailing somersault.
+  Landing poses are visual only: steering, jumps and attacks remain responsive.
+
+Meet four new opponents: flank the **Mirror Duelist** or strike after its lunge;
+wait for the **Sand Burrower** to surface after its warning ripples; defeat the
+**Lantern Thief** to recover its borrowed dash light (it also returns after four
+seconds); strike the **Clockwork Guardian** when its bronze armor opens.
+
+Three manuscript detours combine these moves. A continuous lower floor catches
+missed swings, and checkpoints sit between encounter areas. Rebuild **only** this
+map with `python -m tools.build_wonders --force`. Supplemental player/enemy frames
+are generated once and cached; no image-generation or runtime download is needed.
+
 Run the automated scene-flow and audio checks without opening a window:
 
 ```bash
@@ -74,6 +101,54 @@ python -m tools.build_bonus_assets --force
 
 ## Controls
 
+### The story
+
+The journey now connects all fifteen chapters: Amir leaves the failing orange
+orchard in search of the Sword of Light, finds the silent blade at the summit,
+and follows the constellation trials to awaken it. Opening its second seal frees
+the Ifrit and begins Book II's stolen night. The final confrontation brings the
+story back to the lantern left burning in the orchard.
+
+A 70-second opening film, **The Lantern Promise**, begins the journey. Amir tells
+his story in first-person subtitles while running through the orchard, jumping a
+water channel, catching the fountain's last drop, accepting the gardener's map,
+and lighting a lantern before leaving. A moving camera, new acting poses, a
+traced route across the map, music and timed sound effects stage the story in the
+game's existing art style. The failed fountains give him a reason to seek the
+Sword, while a torn warning foreshadows what he will release later.
+
+At the end of the orchard, the thief's players are draining its last water: they
+have turned a fountain into the **Moon-Clock**, whose brass column pours the
+water up into a floating moon. Three masked performers step down from it, each in
+a bubble of moon-water hung from the moon on a glowing string: **Rashid the
+Juggler** (slash his oranges back at him), **Zahra the Blossom Dancer** (watch for
+petals gathering behind you) and **Layla the Water-Weaver** (her whip, and the
+moon's tides). Cut a string with a jumping slash so its bubble can't heal, burst
+the bubble with three blows, then strike. The level's three manuscript pages
+teach the **Brass Nightingale**, which rides on Amir's shoulder: its song bursts
+every bubble in reach, snaps the strings and stuns the performers while it pecks
+one. Elsewhere it knocks creatures senseless and shakes golden fruit from the
+orange trees.
+
+Short animated interludes connect the later chapters using existing scenery.
+The original title screen, chapter cards, HUD, pause menu, controls and map files
+are unchanged. **Enter** advances a story beat; **Escape** skips the whole scene.
+Scenes also advance automatically at a reading-friendly pace. Gameplay, hazards,
+the flood and the level timer do not run during them.
+
+Story scenes are remembered in your save and do not repeat on deaths or checkpoint
+retries. Level Select replays skip them altogether. **New Journey** resets the
+story along with the existing journey progress; older saves load normally.
+On an older save, **Continue** shows the new opening once, then resumes the correct
+chapter without erasing scores, completed levels or options.
+Collected manuscript pages reveal brief lore through the existing HUD toast.
+Pages are optional: none are required to see the complete ending.
+
+Chapter story text lives in `core/story.py`; the opening's screenplay and actor
+tracks live in `core/prologue.py`. Both are separate from all level geometry.
+
+### Keyboard and gamepad
+
 | Key | Action |
 |---|---|
 | A / D or Left / Right | Move |
@@ -84,6 +159,7 @@ python -m tools.build_bonus_assets --force
 | Down in mid-air | **Ground pound**: breaks cracked stone, bricks and crumbling slabs, presses bronze plates, super-launches off drums |
 | Jump again in mid-air (hold) | **Glide** with the shawl; ride fountain updrafts |
 | Touch a golden ring | **Swing**: Left/Right pump, Jump lets go with a kick, Dash flies off |
+| V / E | Use the level's **manuscript power** once all three of its pages are found (level 1: the Brass Nightingale) |
 | S / Down | Enter a tiled well (pipe) |
 | Escape | Pause |
 | Enter | Confirm in menus |

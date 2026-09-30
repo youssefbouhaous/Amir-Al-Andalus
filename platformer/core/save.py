@@ -48,6 +48,8 @@ class SaveData:
     seen_intro: bool = False
     game_completed: bool = False
     total_deaths: int = 0
+    # Optional story progress; old saves simply begin with no scenes seen.
+    story_seen: set[str] = field(default_factory=set)
 
     def record(self, level_file: str) -> LevelRecord:
         record = self.levels.get(level_file)
@@ -103,6 +105,9 @@ def _from_dict(raw: dict) -> SaveData:
     data.seen_intro = bool(raw.get("seen_intro", False))
     data.game_completed = bool(raw.get("game_completed", False))
     data.total_deaths = int(raw.get("total_deaths", 0) or 0)
+    story_seen = raw.get("story_seen", [])
+    if isinstance(story_seen, list):
+        data.story_seen = {key for key in story_seen if isinstance(key, str) and len(key) <= 80}
     return data
 
 
@@ -133,7 +138,7 @@ class SaveManager:
             return SaveData()
 
     def save(self) -> None:
-        payload = {"version": SAVE_VERSION, **asdict(self.data)}
+        payload = {"version": SAVE_VERSION, **asdict(self.data), "story_seen": sorted(self.data.story_seen)}
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             temporary = self._path.with_suffix(".tmp")

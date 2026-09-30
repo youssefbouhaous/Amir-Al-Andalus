@@ -11,6 +11,8 @@ from entities.enemies.enemy import Enemy
 from entities.enemies.flyer import Flyer
 from entities.enemies.hopper import Hopper
 from entities.enemies.walker import Walker
+from entities.enemies.wonders import MirrorDuelist, SandBurrower, LanternThief, ClockworkGuardian
+from rendering import wonders_specs
 from rendering import sprite_specs
 from rendering.sprite_library import SpriteLibrary
 from world.level_data import ObjectSpec
@@ -74,6 +76,14 @@ ENEMY_FACTORIES: dict[str, EnemyFactory] = {
     "bat": _create_bat,
     "ghul": _create_ghul,
     "ghost": _create_ghul,
+    "mirror_duelist": lambda spec, sprites: MirrorDuelist(
+        spec.midbottom, sprites.animations(wonders_specs.MIRROR_DUELIST), _facing(spec)),
+    "sand_burrower": lambda spec, sprites: SandBurrower(
+        spec.midbottom, sprites.animations(wonders_specs.SAND_BURROWER), _facing(spec)),
+    "lantern_thief": lambda spec, sprites: LanternThief(
+        spec.midbottom, sprites.animations(wonders_specs.LANTERN_THIEF), _facing(spec)),
+    "clockwork_guardian": lambda spec, sprites: ClockworkGuardian(
+        spec.midbottom, sprites.animations(wonders_specs.CLOCKWORK_GUARDIAN), _facing(spec)),
 }
 
 

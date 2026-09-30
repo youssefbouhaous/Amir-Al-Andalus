@@ -19,6 +19,8 @@ class PlayerIntent:
     attack_pressed: bool = False
     dash_pressed: bool = False
     down_pressed: bool = False
+    up_pressed: bool = False
+    power_pressed: bool = False
 
 
 class PlayerController:
@@ -36,4 +38,6 @@ class PlayerController:
             attack_pressed=state.was_pressed(Action.ATTACK),
             dash_pressed=state.was_pressed(Action.DASH),
             down_pressed=state.was_pressed(Action.DOWN),
+            up_pressed=state.was_pressed(Action.UP),
+            power_pressed=state.was_pressed(Action.POWER),
         )

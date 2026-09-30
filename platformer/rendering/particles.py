@@ -208,7 +208,8 @@ class ParticleSystem:
                     fade = p.alpha * min(1.0, (1.0 - t) / 0.3)
                     image.set_alpha(int(255 * fade))
                     surface.blit(image, image.get_rect(center=(int(sx), int(sy))))
-                    image.set_alpha(None)
+                    # Not set_alpha(None): that strips per-pixel alpha from the (cached) image.
+                    image.set_alpha(255)
                 else:
                     surface.blit(image, image.get_rect(center=(int(sx), int(sy))))
             elif kind == Kind.TWINKLE:

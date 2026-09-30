@@ -59,10 +59,24 @@ class DashLantern(Prop):
         super().__init__(pygame.Rect(center[0] - 14, center[1] - 14, 28, 28))
         self._timer = 0.0
         self._time = center[0] * 0.01
+        self.borrower = None
+        self._borrow_timer = 0.0
+
+    def borrow(self, borrower) -> bool:
+        if not self.lit:
+            return False
+        self.borrower = borrower
+        self._borrow_timer = 4.0
+        return True
+
+    def return_light(self, borrower) -> None:
+        if self.borrower is borrower:
+            self.borrower = None
+            self._borrow_timer = self._timer = 0.0
 
     @property
     def lit(self) -> bool:
-        return self._timer <= 0
+        return self._timer <= 0 and self.borrower is None
 
     def on_touch(self, player: "Player", world: "World") -> None:
         if not self.lit or not player.refill_dash():
@@ -74,6 +88,11 @@ class DashLantern(Prop):
 
     def update(self, dt: float, world: "World") -> None:
         self._time += dt
+        if self.borrower is not None:
+            self._borrow_timer -= dt
+            if (self._borrow_timer <= 0 or not self.borrower.alive
+                    or not self.borrower.is_dangerous):
+                self.return_light(self.borrower)
         if self._timer > 0:
             self._timer -= dt
             if self._timer <= 0:
@@ -92,7 +111,7 @@ class DashLantern(Prop):
             image = pygame.transform.rotate(_lantern_image(True), (self._time * 40) % 360)
         else:
             image = _lantern_image(False)
-            refill = 1.0 - self._timer / self.RELIGHT
+            refill = 1.0 - (self._borrow_timer / 4.0 if self.borrower else self._timer / self.RELIGHT)
             pygame.draw.arc(surface, (150, 200, 255), (x - 16, y - 16, 32, 32), math.pi / 2,
                             math.pi / 2 + math.tau * refill, 2)
         surface.blit(image, image.get_rect(center=(x, y)))

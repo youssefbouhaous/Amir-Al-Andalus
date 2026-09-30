@@ -70,9 +70,15 @@ class SwayingTree(ImageDecor):
         ]
         self._time = midbottom[0] * 0.01
         self._blossoms = blossoms
+        self._rustle = 0.0
+
+    def rustle(self, strength: float = 1.0) -> None:
+        """Shaken hard for a moment (the Brass Nightingale's song)."""
+        self._rustle = max(self._rustle, strength)
 
     def update(self, dt: float, world: "World") -> None:
         self._time += dt
+        self._rustle = max(0.0, self._rustle - dt * 0.8)
         if self._blossoms and world.on_screen(self.rect, 0) and world.particles.rng.random() < dt * 0.8:
             rng = world.particles.rng
             world.particles.spawn(
@@ -85,6 +91,8 @@ class SwayingTree(ImageDecor):
         wind = world_wind = 0.0
         index = int((self._time * 0.9) * self.FRAMES) % self.FRAMES
         image = self._frames[index]
+        if self._rustle > 0:
+            image = pygame.transform.rotate(image, math.sin(self._time * 24) * 4.0 * self._rustle)
         bottom = camera.to_screen(self.rect.centerx, self.rect.bottom)
         surface.blit(image, image.get_rect(midbottom=(bottom[0], bottom[1] + 2)))
 

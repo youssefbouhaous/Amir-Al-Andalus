@@ -62,6 +62,8 @@ SHAKE: dict[EventType, float] = {
     EventType.PLAYER_POUNDED: 0.38,
     EventType.PLAYER_DASHED: 0.1,
     EventType.GATE_OPENED: 0.15,
+    EventType.GUARDIAN_RESOLVED: 0.6,
+    EventType.POWER_USED: 0.12,
 }
 HITSTOP: dict[EventType, float] = {
     EventType.ENEMY_STOMPED: settings.JUICE.hitstop_stomp,
@@ -149,6 +151,12 @@ class GameScene(Scene):
             self._hitstop = max(0.0, self._hitstop - dt)
             return
 
+        wonder = self._world.wonder
+        if wonder is not None and wonder.overlay_active:
+            # A manuscript page (or the grant ceremony) is open: the world waits.
+            wonder.update_overlay(dt, input_state)
+            return
+
         player = self._world.player
         player.intent = self._controller.read()
         self._world.update(dt, self._camera.view_rect)
@@ -184,12 +192,34 @@ class GameScene(Scene):
         match event.type:
             case EventType.PAGE_COLLECTED:
                 self._hud.flash_pages()
+                if self._world.wonder is not None and isinstance(event.value, int):
+                    self._world.wonder.on_page_collected(event.value)
+                if not self._session.replay:
+                    from core.story import manuscript_line
+
+                    line = manuscript_line(self._level.file_name, event.value)
+                    if line:
+                        self._hud.toast(line)
             case EventType.PLAYER_DIED:
                 self.context.audio.fade_music(DEATH_MUSIC_FADE_MS)
             case EventType.LEVEL_COMPLETED:
                 self.context.audio.fade_music(DEATH_MUSIC_FADE_MS)
             case EventType.CHECKPOINT_REACHED:
                 self._hud.toast("Lantern lit")
+            case EventType.GUARDIAN_AWAKE if isinstance(event.value, str):
+                self._hud.toast(event.value)
+                guardian = self._world.wonder.guardian if self._world.wonder is not None else None
+                music = getattr(guardian, "music", None)
+                if music and event.value == guardian.intro:
+                    self.context.audio.play_music(music)
+            case EventType.GUARDIAN_RESOLVED:
+                guardian = self._world.wonder.guardian if self._world.wonder is not None else None
+                self._hud.toast(getattr(guardian, "farewell", "") or "The machine falls still. The way is open.")
+                if getattr(guardian, "music", None):
+                    self.context.audio.play_music(self._level.music or self._background.theme.music)
+                resolved = getattr(self._session, "wonders_resolved", set())
+                resolved.add(self._level.file_name)
+                self._session.wonders_resolved = resolved
             case EventType.BOSS_ROAR if event.value == "intro":
                 self.context.audio.play_music("boss")
                 self._hud.toast("The Ifrit!")
@@ -226,6 +256,13 @@ class GameScene(Scene):
         if boss is not None and boss.camera_focus is not None:
             self._camera.set_bounds(boss.arena)
             self._camera.pan_to(boss.camera_focus, dt)
+            return
+        wonder = self._world.wonder
+        focus = wonder.camera_focus if wonder is not None else None
+        if focus is not None:
+            # Frame the whole stage while a machine's fight is on.
+            self._camera.set_bounds(self._world.camera_bounds_for(center))
+            self._camera.pan_to(focus, dt, 2.5)
             return
         self._camera.set_bounds(self._world.camera_bounds_for(center))
         running = abs(player.body.velocity.x) > 60
@@ -289,7 +326,7 @@ class GameScene(Scene):
         record = self.context.save.data.levels.get(self._level.file_name)
         found = set(record.pages) if record is not None else set()
         self._hud.known_pages = found
-        return build_world(
+        world = build_world(
             self._level,
             self.context.sprites,
             self.context.assets,
@@ -298,6 +335,13 @@ class GameScene(Scene):
             spawn_door=spawn_door,
             found_pages=found | self._session.pages_found,
         )
+        from jazari.catalog import install
+
+        resolved = self._level.file_name in getattr(self._session, "wonders_resolved", set())
+        previous = getattr(self, "_world", None)
+        progress = previous.wonder.progress if previous is not None and previous.wonder is not None else 0
+        install(world, self._level, self.context.assets, found | self._session.pages_found, resolved, progress)
+        return world
 
     def _snap_camera(self) -> None:
         player = self._world.player
@@ -328,6 +372,9 @@ class GameScene(Scene):
             # The stolen dawn returns once the Ifrit is sealed away.
             dawn = (255, 236, 214)
             ambient = tuple(round(a + (b - a) * boss.dawn) for a, b in zip(ambient, dawn))
+        if self._world.wonder is not None:
+            # A machine can pull the night over the level (the Moon-Clock's dusk).
+            ambient = self._world.wonder.ambient(ambient)
         if ambient is not None:
             self._lighting.begin(ambient)
             for light in self._world.lights():
@@ -337,6 +384,8 @@ class GameScene(Scene):
         if self.context.debug.enabled:
             self._draw_debug_shapes(surface)
         self._hud.draw(surface, self._session, self._world)
+        if self._world.wonder is not None:
+            self._world.wonder.draw_screen(surface)
         self._transition.draw(surface)
 
     def _draw_debug_shapes(self, surface: pygame.Surface) -> None:

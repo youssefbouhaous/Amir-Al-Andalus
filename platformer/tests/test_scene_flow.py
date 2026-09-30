@@ -30,9 +30,11 @@ from scenes.game_scene import GameScene
 from scenes.level_intro_scene import LevelIntroScene
 from scenes.menu_scene import MenuScene
 from scenes.pause_scene import PauseScene
+from scenes.prologue_scene import PrologueScene
 from scenes.scene_manager import SceneManager
 from scenes.tally_scene import TallyScene
 from scenes.title_scene import TitleScene
+from scenes.story_scene import StoryScene
 from ui.debug_overlay import DebugOverlay
 from world.level_loader import LevelLoader
 
@@ -78,6 +80,10 @@ class SceneFlowTests(unittest.TestCase):
         self.context.scenes.push(TitleScene(self.context))
         self.context.scenes.draw(self.screen)
         self.press(pygame.K_RETURN)
+        self.assertIsInstance(self.context.scenes.top, PrologueScene)
+        self.context.scenes.draw(self.screen)
+        self.advance(.5)
+        self.press(pygame.K_ESCAPE)
         self.assertIsInstance(self.context.scenes.top, LevelIntroScene)
         self.advance(settings.LEVEL_INTRO_DURATION + 0.1)
         self.assertIsInstance(self.context.scenes.top, GameScene)
@@ -104,6 +110,12 @@ class SceneFlowTests(unittest.TestCase):
 
                     boss._set(Mode.DEFEAT, 0.0)
                     self.advance(0.1)
+                wonder = game.world.wonder
+                if wonder is not None:
+                    # A manuscript machine (the Moon Troupe) bolts the exit until it is beaten.
+                    self.assertEqual(game.world.goals, [])
+                    wonder.guardian.resolve(game.world, "test")
+                    self.advance(0.1)
                 goal = game.world.goals[-1]
                 game.world.player.arrive_at(goal.rect.midbottom)
                 self.advance(0.1)
@@ -115,6 +127,10 @@ class SceneFlowTests(unittest.TestCase):
                 self.advance(0.5)
                 self.press(pygame.K_RETURN)
                 expected = LevelIntroScene if next_level(level.file_name, level.next_level) else VictoryScene
+                if isinstance(self.context.scenes.top, StoryScene):
+                    self.context.scenes.draw(self.screen)
+                    self.advance(.5)
+                    self.press(pygame.K_ESCAPE)
                 self.assertIsInstance(self.context.scenes.top, expected)
         self.assertTrue(self.save.data.game_completed)
         self.assertTrue(SaveManager(self.save.path.parent).data.game_completed)
@@ -146,8 +162,14 @@ class SceneFlowTests(unittest.TestCase):
         self.context.save = SaveManager(self.save.path.parent)
         self.context.scenes.push(TitleScene(self.context))
         self.press(pygame.K_RETURN)
+        self.assertIsInstance(self.context.scenes.top, PrologueScene)
+        self.advance(.5)
+        self.press(pygame.K_ESCAPE)
         self.assertIsInstance(self.context.scenes.top, LevelIntroScene)
         self.advance(settings.LEVEL_INTRO_DURATION + 0.1)
+        self.assertIsInstance(self.context.scenes.top, StoryScene)
+        self.advance(.5)
+        self.press(pygame.K_ESCAPE)
         self.assertEqual(self.context.scenes.top.session.level_file, "level3.tmx")
 
     def test_new_journey_requires_confirmation_and_keeps_options(self):
@@ -165,7 +187,7 @@ class SceneFlowTests(unittest.TestCase):
         self.press(pygame.K_RETURN)
         self.press(pygame.K_DOWN)
         self.press(pygame.K_RETURN)
-        self.assertIsInstance(self.context.scenes.top, LevelIntroScene)
+        self.assertIsInstance(self.context.scenes.top, PrologueScene)
         self.assertFalse(self.save.data.is_completed("level1.tmx"))
         self.assertEqual(self.save.data.options.music_volume, 0.2)
 

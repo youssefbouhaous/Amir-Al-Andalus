@@ -130,7 +130,10 @@ class TitleScene(Scene):
         self._start_level(file_name)
 
     def _start_level(self, file_name: str) -> None:
+        from core.prologue import PROLOGUE_KEY
+        from core.story import ARRIVALS
         from scenes.level_intro_scene import LevelIntroScene
+        from scenes.prologue_scene import PrologueScene
 
         self.context.save.data.seen_intro = True
         # A save from before the continuation chapter existed may already be
@@ -138,7 +141,12 @@ class TitleScene(Scene):
         if file_name != settings.FIRST_LEVEL:
             self.context.save.data.game_completed = False
         self.context.save.save()
-        self.context.scenes.replace(LevelIntroScene(self.context, GameSession(file_name)))
+        following = LevelIntroScene(self.context, GameSession(file_name))
+        if (following._error is None and file_name in ARRIVALS
+                and PROLOGUE_KEY not in self.context.save.data.story_seen):
+            self.context.scenes.replace(PrologueScene(self.context, following))
+        else:
+            self.context.scenes.replace(following)
 
     def draw(self, surface: pygame.Surface) -> None:
         self._background.draw(surface, scroll=self._elapsed * 12)

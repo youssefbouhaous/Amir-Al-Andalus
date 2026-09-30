@@ -50,6 +50,11 @@ class LevelIntroScene(MessageScene):
         super().update(dt)
 
     def on_continue(self) -> None:
+        from core.story import ARRIVALS
         from scenes.game_scene import GameScene
+        from scenes.story_scene import with_story
 
-        self.context.scenes.replace(GameScene(self.context, self._session, self._level))
+        game = GameScene(self.context, self._session, self._level)
+        self.context.scenes.replace(with_story(
+            self.context, self._session, ARRIVALS.get(self._level.file_name), game
+        ))

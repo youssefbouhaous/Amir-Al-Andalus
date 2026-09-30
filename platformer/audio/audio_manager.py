@@ -225,6 +225,21 @@ class AudioManager:
             case EventType.SWITCH_WARNING:
                 self.play("tick", 0.7)
                 return
+            case EventType.MACHINE_CLUNK if isinstance(event.value, str):
+                self.play(f"wonder_{event.value}")
+                return
+            case EventType.POWER_USED if isinstance(event.value, str):
+                self.play(f"power_{event.value}")
+                return
+            case EventType.PLAYER_SHOVED:
+                self.play("wonder_shove")
+                return
+            case EventType.GUARDIAN_RESOLVED:
+                self.play("wonder_resolved")
+                return
+            case EventType.POWER_GRANTED:
+                self.play("extra_life")
+                return
         name = EVENT_SOUNDS.get(event.type)
         if name is not None:
             self.play(name)

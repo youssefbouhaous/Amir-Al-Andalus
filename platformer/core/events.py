@@ -31,6 +31,13 @@ class EventType(Enum):
     GATE_OPENED = auto()
     GATE_CLOSED = auto()
     FLOOD_RISING = auto()
+    # The Ingenious Devices and the manuscript powers.
+    PLAYER_SHOVED = auto()
+    POWER_GRANTED = auto()      # value: power key
+    POWER_USED = auto()         # value: power key
+    GUARDIAN_AWAKE = auto()     # value: guardian name
+    GUARDIAN_RESOLVED = auto()  # value: how it was beaten
+    MACHINE_CLUNK = auto()      # value: sound name (telegraphs: clatter, clunk, tick, lean...)
     EXTRA_LIFE = auto()
     COIN_COLLECTED = auto()
     PAGE_COLLECTED = auto()     # value: page index

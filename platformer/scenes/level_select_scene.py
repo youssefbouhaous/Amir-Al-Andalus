@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pygame
 
 from core import settings
-from core.campaign import next_level
+from core.campaign import OPTIONAL_LEVELS, next_level
 from core.input import Action
 from core.save import LevelRecord
 from core.session import GameSession
@@ -102,6 +102,13 @@ class LevelSelectScene(Scene):
                 file_name = next_level(level.file_name, level.next_level)
         except LevelLoadError as error:
             self._error = str(error)
+        for file_name in OPTIONAL_LEVELS:
+            try:
+                level = self.context.levels.load(file_name)
+            except LevelLoadError:
+                continue  # Optional content need not be installed in custom campaigns.
+            record = self.context.save.data.levels.get(file_name, LevelRecord())
+            self.entries.append(LevelEntry(level, True, record))
 
     @property
     def page(self) -> int:
@@ -203,12 +210,15 @@ class LevelSelectScene(Scene):
             if selected:
                 pygame.draw.rect(surface, GOLD, rect, 2, border_radius=8)
             color = GOLD if entry.unlocked else MUTED
-            draw_text(surface, self._small, f"{index + 1:02d}", color, midleft=(rect.left + 12, rect.centery))
+            number = "+" if entry.level.file_name in OPTIONAL_LEVELS else f"{index + 1:02d}"
+            draw_text(surface, self._small, number, color, midleft=(rect.left + 12, rect.centery))
             name = entry.level.name
             while self._small.size(name)[0] > 305:
                 name = name[:-4].rstrip() + "..."
             draw_text(surface, self._small, name, color, midleft=(rect.left + 49, rect.centery))
             status = "CLEAR" if entry.record.completed else ("OPEN" if entry.unlocked else "LOCKED")
+            if entry.level.file_name in OPTIONAL_LEVELS and not entry.record.completed:
+                status = "BONUS"
             draw_text(surface, self._small, status, color, midright=(rect.right - 12, rect.centery))
 
         pygame.draw.rect(surface, PANEL, (524, 124, 404, 306), border_radius=12)
@@ -228,7 +238,10 @@ class LevelSelectScene(Scene):
 
     def _draw_details(self, surface, entry: LevelEntry) -> None:
         record = entry.record
-        draw_text(surface, self._small, "REPLAY & PERSONAL BESTS" if entry.unlocked else "LOCKED CHAPTER",
+        heading = "REPLAY & PERSONAL BESTS" if entry.unlocked else "LOCKED CHAPTER"
+        if entry.level.file_name in OPTIONAL_LEVELS:
+            heading = "OPTIONAL MOVEMENT PLAYGROUND"
+        draw_text(surface, self._small, heading,
                   GOLD, topleft=(548, 137))
         for index, line in enumerate(wrap_text(self._heading, entry.level.name, 350)[:2]):
             draw_text(surface, self._heading, line, GOLD, topleft=(548, 164 + index * 29))

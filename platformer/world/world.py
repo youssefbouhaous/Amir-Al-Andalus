@@ -35,6 +35,7 @@ from world.level_data import LevelData
 
 if TYPE_CHECKING:
     from entities.boss import Ifrit
+    from jazari.director import WonderDirector
     from objects.mechanisms import Gate, PoundPlate, Updraft
     from objects.rings import Ring
 
@@ -65,6 +66,8 @@ class World:
         self.view = level.pixel_rect
         self.switch: SwitchController | None = None
         self.boss: "Ifrit | None" = None
+        # The level's Ingenious Device and manuscript power (jazari/director.py).
+        self.wonder: "WonderDirector | None" = None
 
         self.enemies: list[Enemy] = []
         self.items: list[Item] = []
@@ -80,6 +83,7 @@ class World:
         self.wind_zones: list[WindZone] = []
         # Book II mechanisms (see objects/mechanisms.py and objects/rings.py).
         self.rings: list["Ring"] = []
+        self.grapple_hooks: list["Ring"] = []
         self.updrafts: list["Updraft"] = []
         self.plates: list["PoundPlate"] = []
         self.gates: list["Gate"] = []
@@ -188,6 +192,8 @@ class World:
                 enemy.update(dt, self)
         if self.boss is not None:
             self.boss.update(dt, self)
+        if self.wonder is not None:
+            self.wonder.update(dt, self)
         for projectile in self.projectiles:
             if projectile.alive:
                 projectile.update(dt, self)
@@ -331,6 +337,8 @@ class World:
                     sources += entity.lights()
         if self.boss is not None:
             sources += self.boss.lights()
+        if self.wonder is not None:
+            sources += self.wonder.lights()
         return [light for light in sources if area.collidepoint(light.x, light.y)]
 
     # --- Draw -------------------------------------------------------------------
@@ -348,6 +356,8 @@ class World:
             goal.draw(surface, camera)
         if self.boss is not None:
             self.boss.draw_back(surface, camera)
+        if self.wonder is not None:
+            self.wonder.draw_back(surface, camera)
         # Items before blocks, so power-ups appear to rise out of the block.
         for item in self.items:
             if item.rect.colliderect(view):
@@ -366,10 +376,14 @@ class World:
                 enemy.draw(surface, camera)
         if self.boss is not None:
             self.boss.draw(surface, camera)
+        if self.wonder is not None:
+            self.wonder.draw(surface, camera)
         for projectile in self.projectiles:
             if projectile.rect.colliderect(view):
                 projectile.draw(surface, camera)
         self.player.draw(surface, camera)
+        if self.wonder is not None:
+            self.wonder.draw_front(surface, camera)
         for effect in self.effects:
             effect.draw(surface, camera)
         for prop in self.props:

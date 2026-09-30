@@ -93,6 +93,9 @@ TRACKS: dict[str, TrackSpec] = {
                       reverb=0.2, seed=27),
     "ending": TrackSpec("rast", 60, 80, "samai", bars=12, lead="ney", density=0.45, drums=0.5,
                         reverb=0.45, bells=True, seed=31),
+    # The Moon Troupe's show at the orchard fountain: a quick, glittering dance.
+    "troupe": TrackSpec("hijaz", 62, 138, "baladi", bars=16, lead="qanun", density=0.85, drums=1.15,
+                        reverb=0.3, bells=True, seed=41),
 }
 
 

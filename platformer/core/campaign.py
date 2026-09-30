@@ -12,6 +12,7 @@ from pathlib import Path
 from core import settings
 
 _LEVEL_FILE = re.compile(r"^level([0-9]+)\.tmx$")
+OPTIONAL_LEVELS = ("challenge_courtyard.tmx",)
 
 
 def next_level(file_name: str, explicit: str | None = None,

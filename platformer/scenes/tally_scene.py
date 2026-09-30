@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pygame
 
 from core import settings
-from core.campaign import next_level
+from core.campaign import OPTIONAL_LEVELS, next_level
 from core.session import GameSession
 from scenes.message_scene import MessageScene
 from ui.text import GOLD_TITLE, draw_text
@@ -46,15 +46,17 @@ class TallyScene(MessageScene):
         if record.best_time is None or session.level_time < record.best_time:
             record.best_time = session.level_time
         record.merge_pages(session.pages_found)
-        if not self._next_level:
+        if not self._next_level and self._level.file_name not in OPTIONAL_LEVELS:
             save.data.game_completed = True
         save.save()
         self.context.audio.stop_music()
         self.context.audio.play_jingle("fanfare")
 
     def on_continue(self) -> None:
+        from core.story import DEPARTURES
         from scenes.end_scenes import VictoryScene
         from scenes.level_intro_scene import LevelIntroScene
+        from scenes.story_scene import with_story
 
         if self._session.replay:
             from scenes.level_select_scene import LevelSelectScene
@@ -63,9 +65,12 @@ class TallyScene(MessageScene):
             return
         if self._next_level:
             self._session.enter_level(self._next_level)
-            self.context.scenes.replace(LevelIntroScene(self.context, self._session))
+            following = LevelIntroScene(self.context, self._session)
         else:
-            self.context.scenes.replace(VictoryScene(self.context, self._session))
+            following = VictoryScene(self.context, self._session)
+        self.context.scenes.replace(with_story(
+            self.context, self._session, DEPARTURES.get(self._level.file_name), following
+        ))
 
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(settings.MENU_BACKGROUND_COLOR)

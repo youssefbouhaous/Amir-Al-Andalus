@@ -72,8 +72,8 @@ class LevelSelectTests(unittest.TestCase):
 
     def test_new_save_only_unlocks_first_level_and_browsing_does_not_save(self):
         scene = self.open_select()
-        self.assertEqual(len(scene.entries), 15)
-        self.assertEqual([e.unlocked for e in scene.entries], [True] + [False] * 14)
+        self.assertEqual(len(scene.entries), 16)
+        self.assertEqual([e.unlocked for e in scene.entries], [True] + [False] * 14 + [True])
         self.context.scenes.draw(self.screen)
         self.assertEqual(self.save.data.levels, {})
         self.assertFalse(self.save.path.exists())
@@ -104,7 +104,7 @@ class LevelSelectTests(unittest.TestCase):
         self.assertEqual(scene.selected, 12)
         for _ in range(8):
             self.press(pygame.K_DOWN)
-        self.assertEqual(scene.selected, 14)
+        self.assertEqual(scene.selected, 15)
         self.context.scenes.draw(self.screen)
         # Gamepad buttons/D-pad feed these same abstract actions.
         self.context.input._pressed = {Action.LEFT}
@@ -222,8 +222,25 @@ class LevelSelectTests(unittest.TestCase):
             self.assertIsInstance(self.context.scenes.top, TitleScene)
         with patch("scenes.level_select_scene.next_level", return_value="level1.tmx"):
             scene = self.open_select()
-            self.assertEqual(len(scene.entries), 1)
+            self.assertEqual(len(scene.entries), 2)  # first chapter + independent bonus
             self.assertIn("circular", scene._error)
+
+    def test_optional_courtyard_is_playable_without_completing_campaign(self):
+        scene = self.open_select("challenge_courtyard.tmx")
+        self.assertTrue(scene.entries[scene.selected].unlocked)
+        scene.draw(self.screen)
+        self.press(pygame.K_RETURN)
+        intro = self.context.scenes.top
+        self.assertIsInstance(intro, LevelIntroScene)
+        self.assertTrue(intro._session.replay)
+        tally = TallyScene(self.context, intro._session, self.levels.load("challenge_courtyard.tmx"))
+        self.context.scenes.reset(tally)
+        self.assertFalse(self.save.data.game_completed)
+        self.assertTrue(self.save.data.is_completed("challenge_courtyard.tmx"))
+        self.context.scenes.update(.5)
+        self.press(pygame.K_RETURN)
+        self.assertIsInstance(self.context.scenes.top, LevelSelectScene)
+        self.assertFalse(self.context.scenes.top.entries[1].unlocked)
 
     def test_old_save_records_do_not_require_replay_score(self):
         from core.save import _from_dict

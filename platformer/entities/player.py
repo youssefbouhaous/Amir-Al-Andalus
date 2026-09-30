@@ -22,6 +22,7 @@ from core.events import EventType
 from core.settings import PLAYER_PHYSICS, PlayerPhysics
 from entities.entity import Entity
 from entities.player_controller import PlayerIntent
+from entities.player_acrobatics import PlayerAcrobatics
 from entities.player_moves import PlayerMoves
 from entities.scarf import Scarf
 from physics.body import Body
@@ -52,6 +53,8 @@ class PlayerState(Enum):
     POUND = auto()
     GLIDE = auto()
     SWING = auto()
+    LEDGE_HANG = auto()
+    VAULT = auto()
 
 
 class PowerLevel(IntEnum):
@@ -62,7 +65,8 @@ class PowerLevel(IntEnum):
 
 CONTROLLABLE_STATES = frozenset(
     {PlayerState.IDLE, PlayerState.RUNNING, PlayerState.JUMPING, PlayerState.FALLING, PlayerState.WALL_SLIDE,
-     PlayerState.DASH, PlayerState.SLIDE, PlayerState.POUND, PlayerState.GLIDE, PlayerState.SWING}
+     PlayerState.DASH, PlayerState.SLIDE, PlayerState.POUND, PlayerState.GLIDE, PlayerState.SWING,
+     PlayerState.LEDGE_HANG, PlayerState.VAULT}
 )
 
 # Squash-and-stretch spring (stiffness, damping): one visible wobble.
@@ -82,12 +86,15 @@ def _anchor(animation: str, frame: int, frame_count: int) -> tuple[float, float]
     key = (animation, frame)
     value = _ANCHORS.get(key)
     if value is None:
-        value = prince.turban_anchor(animation, frame, frame_count)
+        from rendering.art import acrobatics
+
+        value = (acrobatics.anchor(animation, frame, frame_count) if animation in acrobatics.NAMES
+                 else prince.turban_anchor(animation, frame, frame_count))
         _ANCHORS[key] = value
     return value
 
 
-class Player(PlayerMoves, Entity):
+class Player(PlayerAcrobatics, PlayerMoves, Entity):
     def __init__(
         self,
         midbottom: tuple[float, float],
@@ -136,6 +143,7 @@ class Player(PlayerMoves, Entity):
         palette = self._palette()
         self.scarf = Scarf(self._scarf_anchor(), palette.scarf, palette.scarf_tip)
         self._init_moves()
+        self._init_acrobatics()
 
     # --- Queries ----------------------------------------------------------------
     @property
@@ -316,6 +324,8 @@ class Player(PlayerMoves, Entity):
     def _update_controlled(self, dt: float, world: "World") -> None:
         # Capture presses even while a special move owns the simulation.
         self._buffer_movement_inputs(dt)
+        if self._update_acrobatics(dt, world):
+            return
         if self._update_special(dt, world):
             return
         if self._try_start_moves(world):
@@ -335,6 +345,8 @@ class Player(PlayerMoves, Entity):
         self._update_wall_contact(dt, world)
         self._update_landing(falling_speed, world)
         self._emit_movement_dust(dt, world)
+        if self._try_ledge(world):
+            return
         self._set_state(self._movement_state())
 
     def _update_horizontal(self, dt: float) -> None:
@@ -462,6 +474,11 @@ class Player(PlayerMoves, Entity):
     def _update_landing(self, falling_speed: float, world: "World") -> None:
         on_ground = self.body.on_ground
         if on_ground and not self._was_on_ground and falling_speed > 60:
+            if self.acrobatics_enabled:
+                hard = falling_speed > self.physics.hard_landing_speed
+                self._landing_pose = "land_hard" if hard else "land_soft"
+                self._landing_timer = .21 if hard else .14
+                self._spin_timer = 0.0
             self.stomp_combo = 0
             strength = min(1.0, falling_speed / 900)
             if falling_speed > self.physics.hard_landing_speed:
@@ -543,6 +560,9 @@ class Player(PlayerMoves, Entity):
             return "door"
         if state == PlayerState.VICTORY:
             return "victory"
+        acrobatic = self._acrobatics_animation()
+        if acrobatic is not None:
+            return acrobatic
         special = {
             PlayerState.DASH: "dash", PlayerState.SLIDE: "slide", PlayerState.POUND: "pound",
             PlayerState.GLIDE: "glide", PlayerState.SWING: "hang",
@@ -577,7 +597,7 @@ class Player(PlayerMoves, Entity):
                 abs(self.body.velocity.x) / self.physics.max_run_speed,
             )
         self._animator.update(dt, speed)
-        if name == "hang" and self._ring is not None:
+        if name in ("hang", "scarf_swing") and self._ring is not None:
             # Pick the frame from the swing angle instead of from time.
             swing = max(-1.0, min(1.0, self._ring.angle * self.facing / 1.1))
             self._animator.seek(round((swing + 1) / 2 * 4) * 1.0)
@@ -671,7 +691,10 @@ class Player(PlayerMoves, Entity):
                     # Rise from inside the well: shift the sprite down, then up.
                     rect.y += round(rect.height * (1.0 - self._door_progress()))
         if self.state != PlayerState.DEAD and clip_y is None:
-            self.scarf.draw(surface, camera)
+            if getattr(self._ring, "is_grapple_hook", False):
+                self._draw_grapple(surface, camera)
+            else:
+                self.scarf.draw(surface, camera)
         if clip_y is not None:
             visible = max(0, min(rect.height, clip_y - rect.top))
             if visible > 0:

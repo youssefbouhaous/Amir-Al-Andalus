@@ -84,6 +84,7 @@ class PlayerMoves:
         if self._ring is not None:
             self._ring.release()
         self._init_moves()
+        self._reset_acrobatics()
         self._jump_buffer_timer = self._jump_min_hold_timer = self._coyote_timer = 0.0
         self._wall_timer = self._wall_lock_timer = 0.0
         self._wall_side = self._last_wall_side = 0
@@ -295,6 +296,8 @@ class PlayerMoves:
             self.body.velocity.x = direction * max(speed, p.slide_jump_speed)
             self.body.velocity.y = -p.jump_velocity * 0.86
             self._consume_jump()
+            if self.acrobatics_enabled:
+                self._spin_timer = .36
             self._stretch(1.2)
             emitters.jump_puff(world.particles, self.body.centerx, self.body.bottom, world.dust_color)
             world.events.emit(EventType.PLAYER_JUMPED, self.body.midbottom)
@@ -448,6 +451,10 @@ class PlayerMoves:
         p = self.physics
         axis = self.intent.move_axis
         ring.pump(dt, axis, p.swing_gravity, p.swing_pump)
+        if (getattr(ring, "is_grapple_hook", False)
+                and not self._clear_tether(world, ring.position, ring.anchor)):
+            self._release_ring(world, boost=False)
+            return
         if axis:
             self.facing = axis
         elif abs(ring.angular_velocity) > 0.2:
@@ -481,6 +488,8 @@ class PlayerMoves:
         if boost:
             velocity.y = min(velocity.y, 0.0) - self.physics.swing_release_boost
             self._stretch(1.25)
+            if self.acrobatics_enabled and getattr(ring, "is_grapple_hook", False):
+                self._spin_timer = .36
         self.body.velocity.update(velocity)
         ring.release()
         self._ring = None
@@ -586,7 +595,7 @@ class PlayerMoves:
 
     def _draw_held_ring(self: "Player", surface: pygame.Surface, camera: Camera) -> None:
         ring = self._ring
-        if ring is None:
+        if ring is None or getattr(ring, "is_grapple_hook", False):
             return
         x, y = camera.to_screen(*ring.position)
         # Two fists gripping the ring, drawn over the head.

@@ -21,6 +21,7 @@ class Action(Enum):
     JUMP = auto()
     ATTACK = auto()
     DASH = auto()
+    POWER = auto()
     PAUSE = auto()
     CONFIRM = auto()
     BACK = auto()
@@ -35,6 +36,8 @@ DEFAULT_BINDINGS: Final[Mapping[Action, tuple[int, ...]]] = {
     Action.JUMP: (pygame.K_SPACE, pygame.K_z, pygame.K_k),
     Action.ATTACK: (pygame.K_x, pygame.K_j, pygame.K_LSHIFT, pygame.K_RSHIFT),
     Action.DASH: (pygame.K_c, pygame.K_l, pygame.K_LCTRL, pygame.K_RCTRL),
+    # The manuscript power earned in the current level.
+    Action.POWER: (pygame.K_v, pygame.K_e),
     Action.PAUSE: (pygame.K_ESCAPE, pygame.K_p),
     Action.CONFIRM: (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE, pygame.K_z),
     Action.BACK: (pygame.K_ESCAPE, pygame.K_BACKSPACE),
@@ -51,6 +54,8 @@ PAD_BUTTONS: Final[Mapping[int, tuple[Action, ...]]] = {
     5: (Action.DASH,),                 # RB
     6: (Action.BACK,),                 # Back / Select
     7: (Action.PAUSE,),                # Start
+    8: (Action.POWER,),                # left stick click
+    9: (Action.POWER,),                # right stick click
 }
 STICK_DEADZONE: Final = 0.45
 
