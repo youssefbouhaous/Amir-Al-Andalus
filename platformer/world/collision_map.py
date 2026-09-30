@@ -22,6 +22,11 @@ class TileCollision(IntEnum):
     ONE_WAY = 2  # Solid only from above: you can jump up through it.
 
 
+# Indexing a tuple is much cheaper than calling the enum constructor, and
+# get() runs thousands of times per frame.
+_KINDS = (TileCollision.EMPTY, TileCollision.SOLID, TileCollision.ONE_WAY)
+
+
 class CollisionMap:
     def __init__(
         self, width: int, height: int, tile_size: int, cells: bytearray | None = None
@@ -52,7 +57,7 @@ class CollisionMap:
             return TileCollision.SOLID
         if ty < 0 or ty >= self.height:
             return TileCollision.EMPTY
-        return TileCollision(self._cells[ty * self.width + tx])
+        return _KINDS[self._cells[ty * self.width + tx]]
 
     def set(self, tx: int, ty: int, kind: TileCollision) -> None:
         if 0 <= tx < self.width and 0 <= ty < self.height:

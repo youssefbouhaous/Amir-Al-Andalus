@@ -96,6 +96,7 @@ class PlayerPhysics:
     max_run_speed: float = 230.0
     ground_acceleration: float = 1500.0
     air_acceleration: float = 1000.0
+    air_turn_acceleration: float = 1600.0
     # Used instead of ground_acceleration when pushing against current motion,
     # so turning around feels snappy instead of floaty.
     turn_acceleration: float = 2800.0
@@ -112,9 +113,11 @@ class PlayerPhysics:
     # Upward speed is multiplied by this when jump is released early.
     jump_cut_multiplier: float = 0.4
     # Grace period to still jump after walking off a ledge.
-    coyote_time: float = 0.1
+    coyote_time: float = 0.15
     # A jump pressed this long before landing still triggers on landing.
-    jump_buffer_time: float = 0.12
+    jump_buffer_time: float = 0.20
+    # A quick tap, including a buffered tap, still produces a usable hop.
+    jump_min_hold_time: float = 0.06
 
     # Wall slide / wall jump. Sliding caps the fall speed; the jump pushes
     # away from the wall and briefly ignores input toward it, so holding the
@@ -123,7 +126,7 @@ class PlayerPhysics:
     wall_jump_velocity_x: float = 250.0
     wall_jump_velocity_y: float = 650.0
     wall_jump_lock_time: float = 0.16
-    wall_coyote_time: float = 0.09
+    wall_coyote_time: float = 0.14
 
     stomp_bounce_velocity: float = 420.0
     stomp_bounce_held_velocity: float = 650.0
@@ -147,6 +150,42 @@ class PlayerPhysics:
     door_sink_speed: float = 48.0
     door_exit_duration: float = 0.5
     victory_duration: float = 2.2
+
+    # --- Book II moves -------------------------------------------------------
+    # Dash: a burst in any of eight directions. One charge in the air,
+    # refilled on the ground, on a swing ring or by a dash lantern.
+    dash_speed: float = 600.0
+    dash_time: float = 0.15
+    dash_cooldown: float = 0.28
+    dash_end_speed: float = 260.0
+    dash_charges: int = 1
+    # Queue an early press through cooldown, landing or lantern recharge.
+    dash_buffer_time: float = 0.20
+    # Simultaneous jump + dash first gives the jump time to clear the floor.
+    jump_dash_delay: float = 0.08
+    # Slide: DOWN while running. Low hitbox; jump out of it for a long jump.
+    slide_speed: float = 420.0
+    slide_friction: float = 520.0
+    slide_min_speed: float = 120.0
+    slide_height: float = 14.0
+    slide_max_time: float = 0.75
+    slide_jump_speed: float = 340.0
+    # Ground pound: DOWN in the air. Hangs for a beat, then plunges.
+    pound_windup: float = 0.13
+    pound_speed: float = 1000.0
+    pound_radius: float = 84.0
+    pound_bounce: float = 300.0
+    pound_drum_velocity: float = 1420.0
+    # Glide: press JUMP again in mid-air and hold it.
+    glide_fall_speed: float = 85.0
+    glide_run_speed: float = 270.0
+    glide_updraft_speed: float = 260.0
+    # Swing rings.
+    swing_gravity: float = 2100.0
+    swing_pump: float = 9.0
+    swing_release_boost: float = 380.0
+    swing_release_scale: float = 1.2
+    swing_regrab_time: float = 0.3
 
     # Below this horizontal speed the player counts as standing still.
     idle_speed_threshold: float = 12.0

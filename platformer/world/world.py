@@ -35,6 +35,8 @@ from world.level_data import LevelData
 
 if TYPE_CHECKING:
     from entities.boss import Ifrit
+    from objects.mechanisms import Gate, PoundPlate, Updraft
+    from objects.rings import Ring
 
 # Debris pieces fly out as (x direction, relative upward speed).
 DEBRIS_PATTERN = ((-1, 1.0), (1, 1.0), (-1, 0.6), (1, 0.6))
@@ -76,6 +78,11 @@ class World:
         self.doors: dict[str, Door] = {}
         self.camera_zones: list[pygame.Rect] = []
         self.wind_zones: list[WindZone] = []
+        # Book II mechanisms (see objects/mechanisms.py and objects/rings.py).
+        self.rings: list["Ring"] = []
+        self.updrafts: list["Updraft"] = []
+        self.plates: list["PoundPlate"] = []
+        self.gates: list["Gate"] = []
 
         # Set when the player finishes entering a door; the scene handles it.
         self.pending_door: Door | None = None
@@ -107,6 +114,26 @@ class World:
 
     def wind_at(self, x: float, y: float) -> float:
         return sum(zone.current for zone in self.wind_zones if zone.rect.collidepoint(x, y))
+
+    def updraft_at(self, x: float, y: float) -> float:
+        return max((draft.strength for draft in self.updrafts if draft.rect.collidepoint(x, y)), default=0.0)
+
+    def gates_in(self, group: str) -> list["Gate"]:
+        return [gate for gate in self.gates if gate.group == group]
+
+    def press_plates(self, area: pygame.Rect) -> None:
+        for plate in self.plates:
+            if plate.rect.colliderect(area):
+                plate.press(self)
+
+    def smash_blocks(self, cells: list[tuple[int, int]], how: str, player: Player) -> bool:
+        """A dash/slide/pound hit these cells. True if anything gave way."""
+        smashed = False
+        for cell in cells:
+            block = self.blocks.get(cell)
+            if block is not None and block.smash(how, player, self):
+                smashed = True
+        return smashed
 
     def anything_overlaps(self, rect: pygame.Rect) -> bool:
         if self.player.rect.colliderect(rect):

@@ -22,6 +22,7 @@ from core.events import EventType
 from core.settings import PLAYER_PHYSICS, PlayerPhysics
 from entities.entity import Entity
 from entities.player_controller import PlayerIntent
+from entities.player_moves import PlayerMoves
 from entities.scarf import Scarf
 from physics.body import Body
 from physics.collision import apply_gravity, approach, move_body
@@ -46,6 +47,11 @@ class PlayerState(Enum):
     ENTERING_DOOR = auto()
     EXITING_DOOR = auto()
     VICTORY = auto()
+    DASH = auto()
+    SLIDE = auto()
+    POUND = auto()
+    GLIDE = auto()
+    SWING = auto()
 
 
 class PowerLevel(IntEnum):
@@ -55,7 +61,8 @@ class PowerLevel(IntEnum):
 
 
 CONTROLLABLE_STATES = frozenset(
-    {PlayerState.IDLE, PlayerState.RUNNING, PlayerState.JUMPING, PlayerState.FALLING, PlayerState.WALL_SLIDE}
+    {PlayerState.IDLE, PlayerState.RUNNING, PlayerState.JUMPING, PlayerState.FALLING, PlayerState.WALL_SLIDE,
+     PlayerState.DASH, PlayerState.SLIDE, PlayerState.POUND, PlayerState.GLIDE, PlayerState.SWING}
 )
 
 # Squash-and-stretch spring (stiffness, damping): one visible wobble.
@@ -80,7 +87,7 @@ def _anchor(animation: str, frame: int, frame_count: int) -> tuple[float, float]
     return value
 
 
-class Player(Entity):
+class Player(PlayerMoves, Entity):
     def __init__(
         self,
         midbottom: tuple[float, float],
@@ -105,11 +112,13 @@ class Player(Entity):
         self._state_time = 0.0
         self._coyote_timer = 0.0
         self._jump_buffer_timer = 0.0
+        self._jump_min_hold_timer = 0.0
         # True while rising from a jump that can still be cut short.
         self._jump_cuttable = False
         self._invulnerable_timer = 0.0
         self._death_bounced = False
         self._wall_side = 0
+        self._last_wall_side = 0
         self._wall_timer = 0.0
         self._wall_lock_timer = 0.0
         self._throw_cooldown = 0.0
@@ -126,6 +135,7 @@ class Player(Entity):
         self._was_on_ground = True
         palette = self._palette()
         self.scarf = Scarf(self._scarf_anchor(), palette.scarf, palette.scarf_tip)
+        self._init_moves()
 
     # --- Queries ----------------------------------------------------------------
     @property
@@ -183,6 +193,7 @@ class Player(Entity):
     # --- Commands from the world / interactions ---------------------------------
     def bounce(self) -> None:
         """Called after stomping an enemy. Holding jump bounces higher."""
+        self.end_pound()
         held = self.intent.jump_held
         speed = (
             self.physics.stomp_bounce_held_velocity if held else self.physics.stomp_bounce_velocity
@@ -192,9 +203,15 @@ class Player(Entity):
         self._stretch(1.18)
 
     def spring_bounce(self) -> None:
-        """Launched by a drum: holding jump goes much higher, and can't be cut."""
+        """Launched by a drum: holding jump goes much higher, and can't be cut.
+
+        Pounding onto a drum is the strongest launch of all."""
         held = self.intent.jump_held
         self.body.velocity.y = -(self.physics.spring_held_velocity if held else self.physics.spring_velocity)
+        if self.is_pounding:
+            self.body.velocity.y = -self.physics.pound_drum_velocity
+            self.end_pound()
+        self._gliding = False
         self.body.ground_platform = None
         self._jump_cuttable = False
         self._coyote_timer = 0.0
@@ -219,6 +236,7 @@ class Player(Entity):
     def die(self, world: "World", fell: bool = False) -> None:
         if self.state == PlayerState.DEAD:
             return
+        self._reset_moves()
         self._set_state(PlayerState.DEAD)
         self._set_power(PowerLevel.NONE)
         self.body.velocity.update(0, 0)
@@ -235,6 +253,7 @@ class Player(Entity):
         world.events.emit(EventType.PLAYER_POWERED_UP, self.body.midbottom, int(new_level))
 
     def enter_door(self, door: "Door") -> None:
+        self._reset_moves()
         self.door = door
         self.body.velocity.update(0, 0)
         self._set_state(PlayerState.ENTERING_DOOR)
@@ -245,6 +264,7 @@ class Player(Entity):
         self.body.clear_contacts()
         self.previous_bottom = self.body.bottom
         self._attack_timer = self._throw_timer = self._throw_cooldown = 0.0
+        self._reset_moves()
         self.door = None
         self._set_state(PlayerState.IDLE)
         self.scarf.reset(self._scarf_anchor(), self.facing)
@@ -267,6 +287,7 @@ class Player(Entity):
         self._attack_timer = max(0.0, self._attack_timer - dt)
         self._hurt_timer = max(0.0, self._hurt_timer - dt)
         self._wall_lock_timer = max(0.0, self._wall_lock_timer - dt)
+        self._update_moves_timers(dt)
         self.previous_bottom = self.body.bottom
 
         match self.state:
@@ -288,13 +309,21 @@ class Player(Entity):
         self.body.external.update(0, 0)
         self._update_spring(dt)
         self._update_animation(dt)
+        self._update_scarf_charge()
         wind = world.wind_at(self.body.centerx, self.body.centery) if hasattr(world, "wind_at") else 0.0
         self.scarf.update(dt, self._scarf_anchor(), self.facing, wind * 1.5 - self.body.velocity.x * 0.8)
 
     def _update_controlled(self, dt: float, world: "World") -> None:
+        # Capture presses even while a special move owns the simulation.
+        self._buffer_movement_inputs(dt)
+        if self._update_special(dt, world):
+            return
+        if self._try_start_moves(world):
+            return
         self._update_horizontal(dt)
         self._update_jump(dt, world)
-        self._apply_gravity(dt)
+        if self._lift is not None or not self._glide_gravity(dt, world):
+            self._apply_gravity(dt)
         self._update_throw(world)
 
         falling_speed = self.body.velocity.y
@@ -319,57 +348,69 @@ class Player(Entity):
         if axis:
             self.facing = axis
             turning = velocity_x * axis < 0
+            top_speed = p.glide_run_speed if self._gliding and not on_ground else p.max_run_speed
             if on_ground:
                 acceleration = p.turn_acceleration if turning else p.ground_acceleration
             else:
-                acceleration = p.air_acceleration
-            velocity_x = approach(velocity_x, axis * p.max_run_speed, acceleration * dt)
+                acceleration = p.air_turn_acceleration if turning else p.air_acceleration
+            if abs(velocity_x) > top_speed and velocity_x * axis > 0:
+                # Keep dash/slide momentum; only air friction bleeds it off.
+                velocity_x = approach(velocity_x, axis * top_speed, p.air_friction * dt)
+            else:
+                velocity_x = approach(velocity_x, axis * top_speed, acceleration * dt)
         else:
             friction = p.ground_friction if on_ground else p.air_friction
             velocity_x = approach(velocity_x, 0.0, friction * dt)
 
         self.body.velocity.x = velocity_x
 
-    def _update_jump(self, dt: float, world: "World") -> None:
+    def _buffer_movement_inputs(self, dt: float) -> None:
         p = self.physics
         intent = self.intent
-
-        # Coyote time: being on the ground "recently" is good enough to jump.
-        if self.body.on_ground:
+        self._jump_min_hold_timer = max(0.0, self._jump_min_hold_timer - dt)
+        if self.body.on_ground and self.body.velocity.y >= 0:
             self._coyote_timer = p.coyote_time
         else:
-            self._coyote_timer -= dt
+            self._coyote_timer = max(0.0, self._coyote_timer - dt)
+        self._wall_timer = max(0.0, self._wall_timer - dt)
 
-        # Jump buffering: remember a press for a moment in case we land soon.
         if intent.jump_pressed:
             self._jump_buffer_timer = p.jump_buffer_time
         else:
-            self._jump_buffer_timer -= dt
+            self._jump_buffer_timer = max(0.0, self._jump_buffer_timer - dt)
+        self._buffer_dash_input(dt)
+
+    def _consume_jump(self) -> None:
+        self._jump_buffer_timer = self._coyote_timer = self._wall_timer = 0.0
+        self._jump_min_hold_timer = self.physics.jump_min_hold_time
+        self._jump_cuttable = True
+        self.body.on_ground = False
+        self.body.ground_platform = None
+
+    def _update_jump(self, dt: float, world: "World") -> None:
+        p = self.physics
+        intent = self.intent
+        self._update_glide_input(world)
 
         if self._jump_buffer_timer > 0 and self._coyote_timer > 0:
             self.body.velocity.y = -p.jump_velocity
-            self.body.ground_platform = None
-            self._jump_buffer_timer = 0.0
-            self._coyote_timer = 0.0
-            self._jump_cuttable = True
+            self._consume_jump()
             self._stretch(JUMP_STRETCH)
             emitters.jump_puff(world.particles, self.body.centerx, self.body.bottom, world.dust_color)
             world.events.emit(EventType.PLAYER_JUMPED, self.body.midbottom)
         elif self._jump_buffer_timer > 0 and self._wall_timer > 0 and not self.body.on_ground:
-            side = self._wall_side
+            side = self._last_wall_side
             self.body.velocity.update(-side * p.wall_jump_velocity_x, -p.wall_jump_velocity_y)
             self.facing = -side
-            self._jump_buffer_timer = 0.0
-            self._wall_timer = 0.0
+            self._consume_jump()
             self._wall_lock_timer = p.wall_jump_lock_time
-            self._jump_cuttable = True
             self._stretch(JUMP_STRETCH)
             wall_x = self.body.right if side > 0 else self.body.left
             emitters.wall_jump_burst(world.particles, wall_x, self.body.centery, side, world.dust_color)
             world.events.emit(EventType.PLAYER_WALL_JUMPED, self.body.midbottom, side)
 
         # Variable jump height: letting go early cuts the upward speed once.
-        if self._jump_cuttable and not intent.jump_held:
+        if self._jump_cuttable and not intent.jump_held and self._jump_min_hold_timer <= 0:
             self._jump_cuttable = False
             if self.body.velocity.y < 0:
                 self.body.velocity.y *= p.jump_cut_multiplier
@@ -396,9 +437,8 @@ class Player(Entity):
                     self._wall_side = side
                     break
         if self._wall_side:
+            self._last_wall_side = self._wall_side
             self._wall_timer = self.physics.wall_coyote_time
-        else:
-            self._wall_timer = max(0.0, self._wall_timer - dt)
 
     def _update_throw(self, world: "World") -> None:
         if not self.intent.attack_pressed or self._throw_cooldown > 0:
@@ -432,6 +472,8 @@ class Player(Entity):
             world.events.emit(EventType.PLAYER_LANDED, self.body.midbottom, round(falling_speed))
         elif on_ground:
             self.stomp_combo = 0
+        if on_ground and self.dash_charges < self.physics.dash_charges:
+            self.dash_charges = self.physics.dash_charges
         self._was_on_ground = on_ground
 
     def _emit_movement_dust(self, dt: float, world: "World") -> None:
@@ -467,6 +509,8 @@ class Player(Entity):
             if sliding:
                 self.facing = self._wall_side
                 return PlayerState.WALL_SLIDE
+            if self._gliding and (body.velocity.y >= -40 or not self._jump_cuttable):
+                return PlayerState.GLIDE
             return PlayerState.JUMPING if body.velocity.y < 0 else PlayerState.FALLING
         if abs(body.velocity.x) > self.physics.idle_speed_threshold or self.intent.move_axis:
             return PlayerState.RUNNING
@@ -499,6 +543,12 @@ class Player(Entity):
             return "door"
         if state == PlayerState.VICTORY:
             return "victory"
+        special = {
+            PlayerState.DASH: "dash", PlayerState.SLIDE: "slide", PlayerState.POUND: "pound",
+            PlayerState.GLIDE: "glide", PlayerState.SWING: "hang",
+        }.get(state)
+        if special is not None:
+            return special
         if self._hurt_timer > 0:
             return "hurt"
         if self._throw_timer > 0:
@@ -527,6 +577,13 @@ class Player(Entity):
                 abs(self.body.velocity.x) / self.physics.max_run_speed,
             )
         self._animator.update(dt, speed)
+        if name == "hang" and self._ring is not None:
+            # Pick the frame from the swing angle instead of from time.
+            swing = max(-1.0, min(1.0, self._ring.angle * self.facing / 1.1))
+            self._animator.seek(round((swing + 1) / 2 * 4) * 1.0)
+        elif name == "pound":
+            frame = 0 if not self._pound_falling else 1 + int(self._state_time * 16) % 2
+            self._animator.seek(frame * 0.06)
 
     def _stretch(self, amount: float) -> None:
         self._scale = amount
@@ -553,6 +610,7 @@ class Player(Entity):
         self._animator.set_animations(self._animation_set())
         palette = self._palette()
         self.scarf.set_colors(palette.scarf, palette.scarf_tip)
+        self._scarf_spent = False
 
     def _animation_set(self) -> Mapping[str, Animation]:
         return self._animation_sets[self.power]
@@ -579,6 +637,7 @@ class Player(Entity):
 
     # --- Draw ---------------------------------------------------------------------------
     def draw(self, surface: pygame.Surface, camera: Camera) -> None:
+        self._draw_afterimages(surface, camera)
         if self._invulnerable_timer > 0 and self.state != PlayerState.DEAD:
             blink_phase = int(self._invulnerable_timer * self.physics.invulnerability_blink_rate)
             if blink_phase % 2 == 0:
@@ -590,6 +649,15 @@ class Player(Entity):
             image = pygame.transform.scale(image, (max(1, round(width * sx)), max(1, round(height * sy))))
         screen_x, screen_y = camera.to_screen(*self.body.midbottom)
         rect = image.get_rect(midbottom=(screen_x, screen_y))
+        if self.state == PlayerState.POUND and not self._pound_falling:
+            # Wind-up somersault before the plunge.
+            progress = 1.0 - max(0.0, self._pound_timer) / self.physics.pound_windup
+            image = pygame.transform.rotate(image, -360 * progress * self.facing)
+            rect = image.get_rect(center=camera.to_screen(self.body.centerx, self.body.centery))
+        elif self.state == PlayerState.DASH and self._dash_dir.y:
+            angle = -math.degrees(math.atan2(self._dash_dir.y, abs(self._dash_dir.x) + 1e-6)) * 0.6
+            image = pygame.transform.rotate(image, angle * self.facing)
+            rect = image.get_rect(center=camera.to_screen(self.body.centerx, self.body.centery))
 
         clip_y = None
         if self.state in (PlayerState.ENTERING_DOOR, PlayerState.EXITING_DOOR) and self.door is not None:
@@ -610,6 +678,8 @@ class Player(Entity):
                 surface.blit(image, rect.topleft, pygame.Rect(0, 0, rect.width, visible))
             return
         surface.blit(image, rect)
+        self._draw_glide_shawl(surface, camera)
+        self._draw_held_ring(surface, camera)
         if self.attack_rect is not None:
             cx, cy = camera.to_screen(self.body.centerx, self.body.centery)
             progress = 1.0 - self._attack_timer / settings.MELEE_DURATION

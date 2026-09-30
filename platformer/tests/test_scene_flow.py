@@ -86,7 +86,10 @@ class SceneFlowTests(unittest.TestCase):
 
     def test_each_goal_reaches_tally_and_next_level_or_victory(self):
         session = GameSession(settings.FIRST_LEVEL)
-        for number in range(1, 11):
+        count = 1
+        while (settings.MAPS_DIR / f"level{count + 1}.tmx").is_file():
+            count += 1
+        for number in range(1, count + 1):
             with self.subTest(level=number):
                 level = self.levels.load(f"level{number}.tmx")
                 session.enter_level(level.file_name)
@@ -94,7 +97,14 @@ class SceneFlowTests(unittest.TestCase):
                 self.context.scenes.reset(game)
                 self.advance(0.7)
                 self.context.scenes.draw(self.screen)
-                goal = game.world.goals[0]
+                boss = game.world.boss
+                if boss is not None:
+                    # The final goal only appears once the Ifrit is sealed away.
+                    from entities.boss import Mode
+
+                    boss._set(Mode.DEFEAT, 0.0)
+                    self.advance(0.1)
+                goal = game.world.goals[-1]
                 game.world.player.arrive_at(goal.rect.midbottom)
                 self.advance(0.1)
                 self.assertEqual(game.world.player.state, PlayerState.VICTORY)

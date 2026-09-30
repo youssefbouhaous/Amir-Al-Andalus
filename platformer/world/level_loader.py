@@ -116,7 +116,7 @@ class _TmxReader:
         return LevelData(
             file_name=self._path.name,
             name=str(properties.get("name", self._path.stem)),
-            subtitle=str(properties.get("subtitle", "")),
+            subtitle=str(properties.get("subtitle") or ""),
             next_level=properties.get("next_level") or None,
             music=properties.get("music") or None,
             theme=str(properties.get("theme") or properties.get("sky") or DEFAULT_THEME),

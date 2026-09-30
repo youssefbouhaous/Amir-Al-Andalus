@@ -452,6 +452,58 @@ class Fountainlet(Prop):
         surface.blit(self._basin, self._basin.get_rect(midbottom=bottom))
 
 
+class Garland(Prop):
+    """A sagging string of coloured paper lanterns between two rooftops.
+
+    The rope is a catenary-like curve that sways with the wind; each
+    lantern glows and lights the street at dusk.
+    """
+
+    layer = "back"
+    COLORS: tuple[Color, ...] = ((255, 120, 70), (255, 200, 90), (120, 200, 255), (240, 90, 140), (150, 230, 140))
+
+    def __init__(self, rect: pygame.Rect, count: int) -> None:
+        super().__init__(rect)
+        self._sag = max(12, rect.height)
+        self._count = max(2, count)
+        self._time = rect.x * 0.013
+        self._wind = 0.0
+
+    def _point(self, u: float) -> tuple[float, float]:
+        sway = math.sin(self._time * 1.4 + u * 3) * 3 * math.sin(u * math.pi) + self._wind * 0.03 * math.sin(u * math.pi)
+        x = self.rect.left + u * self.rect.width + sway
+        y = self.rect.top + self._sag * 4 * u * (1 - u)
+        return x, y
+
+    def update(self, dt: float, world: "World") -> None:
+        self._time += dt
+        self._wind = world.wind_at(self.rect.centerx, self.rect.top + self._sag)
+
+    def lights(self) -> list[Light]:
+        lights = []
+        for k in range(self._count):
+            x, y = self._point((k + 0.5) / self._count)
+            lights.append(Light(x, y + 10, 60, self.COLORS[k % len(self.COLORS)], 0.7, flicker=0.2))
+        return lights
+
+    def draw(self, surface: pygame.Surface, camera: Camera) -> None:
+        points = [camera.to_screen(*self._point(k / 24)) for k in range(25)]
+        pygame.draw.lines(surface, (60, 40, 34), False, points, 2)
+        for k in range(self._count):
+            u = (k + 0.5) / self._count
+            x, y = camera.to_screen(*self._point(u))
+            color = self.COLORS[k % len(self.COLORS)]
+            swing = math.sin(self._time * 2.2 + k) * 2
+            body = pygame.Rect(0, 0, 10, 13)
+            body.midtop = (x + swing, y + 4)
+            pygame.draw.line(surface, (60, 40, 34), (x, y), body.midtop, 1)
+            blit_glow(surface, body.center, 14, color, 0.5)
+            pygame.draw.ellipse(surface, color, body)
+            pygame.draw.ellipse(surface, (60, 30, 30), body, 1)
+            pygame.draw.line(surface, (255, 240, 200), (body.centerx - 2, body.top + 3), (body.centerx - 2, body.bottom - 3), 1)
+            pygame.draw.rect(surface, (90, 60, 40), (body.centerx - 3, body.top - 1, 6, 2))
+
+
 def create_decor(spec: ObjectSpec) -> Prop | None:
     style = spec.get_str("style", "").lower()
     x, y = spec.midbottom
@@ -502,6 +554,8 @@ def create_decor(spec: ObjectSpec) -> Prop | None:
         return LightShaft(spec.rect)
     if style == "fountain":
         return Fountainlet((x, y))
+    if style == "garland":
+        return Garland(spec.rect, spec.get_int("count", max(3, spec.rect.width // 48)))
     return None
 
 

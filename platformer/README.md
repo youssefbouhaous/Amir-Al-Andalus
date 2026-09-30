@@ -71,6 +71,11 @@ python -m tools.build_bonus_assets --force
 | A / D or Left / Right | Move |
 | Space | Jump (hold for a higher jump) |
 | X / J / Left Shift | Slash; the star robe also throws a star |
+| C / L / Ctrl | **Dash** in any of 8 directions (one air dash; landing, rings and blue lanterns recharge it) |
+| Down while running | **Slide** under blades; jump out of it for a long slide-jump |
+| Down in mid-air | **Ground pound**: breaks cracked stone, bricks and crumbling slabs, presses bronze plates, super-launches off drums |
+| Jump again in mid-air (hold) | **Glide** with the shawl; ride fountain updrafts |
+| Touch a golden ring | **Swing**: Left/Right pump, Jump lets go with a kick, Dash flies off |
 | S / Down | Enter a tiled well (pipe) |
 | Escape | Pause |
 | Enter | Confirm in menus |
@@ -269,3 +274,30 @@ To add a level: copy a `.tmx`, change it, and point the previous level's
 Controller support, a level timer, a sprint button, crouching, shooting
 power-ups, enemy shells, slopes, saving progress, settings menu (volume, key
 rebinding), and animated tiles from Tiled.
+
+## Book II - The Ifrit's Night (levels 11-15)
+
+After the Sword of Light is claimed, the Ifrit sealed in its shrine breaks
+free and steals the dawn. Book II teaches the new moves one by one, then
+braids them together:
+
+| Level | Idea |
+|---|---|
+| 11 The Djinn's Bazaar | Dash and slide school: blade alleys, cracked walls, the Lantern Road (chains of dash lanterns over two chasms), a pound-plate portcullis |
+| 12 The Swinging Moons | Glide and rings: moon pools, fountain updrafts, ring chains, the Moon Orchard |
+| 13 The Drowned Cistern | A vertical escape from rising water: wall-jump shaft, a tower of dash lanterns, updraft vent, cracked roof |
+| 14 The Seven Gates of the Sierra | Seven portcullises, each opened a different way: pound-drum launches, timed plate races, pounding through slabs |
+| 15 The Ifrit's Crown | Everything at once through the Alhambra, then the Ifrit boss fight in the Court of the Lions |
+
+Book II maps are authored in `tools/levels/book_two.py` and written with
+`python -m tools.build_book_two` (it never touches levels 1-10).
+
+### Proving levels can be finished
+
+`python -m tools.check_levels level11 level12 ...` (or `--all-book-two`)
+explores a map with the game's real player physics: from every standable
+spot it tries walks, jumps, dashes, dash chains, glides, updraft rides,
+slide jumps, wall climbs, ring swings and pound launches, and reports
+whether the goal, every page and every checkpoint are reachable, plus any
+spots from which the goal can no longer be reached (soft-locks).
+Levels 11-15 all pass.

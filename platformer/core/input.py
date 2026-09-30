@@ -20,6 +20,7 @@ class Action(Enum):
     DOWN = auto()
     JUMP = auto()
     ATTACK = auto()
+    DASH = auto()
     PAUSE = auto()
     CONFIRM = auto()
     BACK = auto()
@@ -33,6 +34,7 @@ DEFAULT_BINDINGS: Final[Mapping[Action, tuple[int, ...]]] = {
     Action.DOWN: (pygame.K_s, pygame.K_DOWN),
     Action.JUMP: (pygame.K_SPACE, pygame.K_z, pygame.K_k),
     Action.ATTACK: (pygame.K_x, pygame.K_j, pygame.K_LSHIFT, pygame.K_RSHIFT),
+    Action.DASH: (pygame.K_c, pygame.K_l, pygame.K_LCTRL, pygame.K_RCTRL),
     Action.PAUSE: (pygame.K_ESCAPE, pygame.K_p),
     Action.CONFIRM: (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE, pygame.K_z),
     Action.BACK: (pygame.K_ESCAPE, pygame.K_BACKSPACE),
@@ -44,7 +46,9 @@ PAD_BUTTONS: Final[Mapping[int, tuple[Action, ...]]] = {
     0: (Action.JUMP, Action.CONFIRM),  # A
     1: (Action.ATTACK, Action.BACK),   # B
     2: (Action.ATTACK,),               # X
-    3: (Action.ATTACK,),               # Y
+    3: (Action.DASH,),                 # Y
+    4: (Action.DASH,),                 # LB
+    5: (Action.DASH,),                 # RB
     6: (Action.BACK,),                 # Back / Select
     7: (Action.PAUSE,),                # Start
 }

@@ -83,6 +83,10 @@ class Animator:
     def update(self, dt: float, speed: float = 1.0) -> None:
         self._elapsed += dt * speed
 
+    def seek(self, elapsed: float) -> None:
+        """Jump to a playback position (for frames driven by physics, not time)."""
+        self._elapsed = elapsed
+
     def image(self, flip_x: bool = False) -> pygame.Surface:
         return self._animations[self._current].image(self._elapsed, flip_x)
 

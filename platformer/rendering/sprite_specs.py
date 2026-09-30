@@ -22,6 +22,11 @@ PLAYER_ANIMATIONS = {
     "victory": AnimationSpec(row=10, frame_count=6, frame_duration=0.09, loop=False),
     "door": AnimationSpec(row=11, frame_count=1, frame_duration=1.0),
     "sit": AnimationSpec(row=12, frame_count=2, frame_duration=0.6),
+    "dash": AnimationSpec(row=13, frame_count=2, frame_duration=0.05),
+    "slide": AnimationSpec(row=14, frame_count=2, frame_duration=0.12),
+    "pound": AnimationSpec(row=15, frame_count=3, frame_duration=0.06),
+    "glide": AnimationSpec(row=16, frame_count=4, frame_duration=0.12),
+    "hang": AnimationSpec(row=17, frame_count=5, frame_duration=1.0),
 }
 _PLAYER_FRAME_COUNTS = {name: spec.frame_count for name, spec in PLAYER_ANIMATIONS.items()}
 

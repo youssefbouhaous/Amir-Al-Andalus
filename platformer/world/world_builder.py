@@ -59,6 +59,8 @@ def build_world(
         power=PowerLevel(max(0, min(2, int(power)))),
     )
     world = World(level, player, sprites, level.collision.copy())
+    locked = str(level.properties.get("locked_moves") or "")
+    player.locked_moves = frozenset(move.strip() for move in locked.split(",") if move.strip())
     world.switch = SwitchController(
         level.get_float("switch_period", 0.0),
         str(level.properties.get("switch_start", "sun")),
@@ -74,6 +76,10 @@ def build_world(
     else:
         player.arrive_at(spawn)
     world.protect_arrival()
+    for prop in world.props:
+        settle = getattr(prop, "settle_below", None)
+        if settle is not None:
+            settle(player.body.bottom)
     return world
 
 
@@ -161,6 +167,15 @@ class _Builder:
             "sign": self._add_sign,
             "decor": self._add_decor,
             "boss": self._add_boss,
+            # Book II
+            "cracked": self._add_cracked,
+            "ring": self._add_ring,
+            "dash_lantern": self._add_dash_lantern,
+            "updraft": self._add_updraft,
+            "pound_plate": self._add_pound_plate,
+            "gate": self._add_gate,
+            "flood": self._add_flood,
+            "blade_trap": self._add_blade_trap,
         }
 
     def add(self, spec: ObjectSpec) -> None:
@@ -365,3 +380,62 @@ class _Builder:
         arena = next(iter(self._level.objects_of("boss_arena")), None)
         arena_rect = pygame.Rect(arena.rect) if arena is not None else self._level.pixel_rect
         self._world.boss = Ifrit(spec.midbottom, arena_rect, self._sprites)
+
+    # --- Book II mechanisms ------------------------------------------------------------
+    def _add_cracked(self, spec: ObjectSpec) -> None:
+        from objects.block import CrackedBlock
+
+        cell = self._cell(spec)
+        for dx in range(max(1, spec.rect.width // T)):
+            for dy in range(max(1, spec.rect.height // T)):
+                self._register_block(CrackedBlock((cell[0] + dx, cell[1] + dy), T, self._tile("cracked")))
+
+    def _add_ring(self, spec: ObjectSpec) -> None:
+        from objects.rings import Ring
+
+        ring = Ring((spec.rect.centerx, spec.rect.top), spec.rect.height, spec.rect.x * 0.01)
+        self._world.props.append(ring)
+        self._world.rings.append(ring)
+
+    def _add_dash_lantern(self, spec: ObjectSpec) -> None:
+        from objects.mechanisms import DashLantern
+
+        self._world.props.append(DashLantern(spec.rect.center))
+
+    def _add_updraft(self, spec: ObjectSpec) -> None:
+        from objects.mechanisms import Updraft
+
+        draft = Updraft(spec.rect, spec.get_float("strength", 260.0))
+        self._world.props.append(draft)
+        self._world.updrafts.append(draft)
+
+    def _add_pound_plate(self, spec: ObjectSpec) -> None:
+        from objects.mechanisms import PoundPlate
+
+        plate = PoundPlate(spec.midbottom, spec.get_str("group", "a"), spec.get_float("timer", 0.0))
+        self._world.props.append(plate)
+        self._world.plates.append(plate)
+
+    def _add_gate(self, spec: ObjectSpec) -> None:
+        from objects.mechanisms import Gate
+
+        gate = Gate(pygame.Rect(spec.rect), spec.get_str("group", "a"), spec.get_bool("open"))
+        gate.register(self._world)
+        self._world.props.append(gate)
+        self._world.gates.append(gate)
+
+    def _add_flood(self, spec: ObjectSpec) -> None:
+        from objects.mechanisms import RisingFlood
+
+        top_limit = spec.get_float("top_limit_tiles", 0.0) * T
+        self._world.props.append(
+            RisingFlood(pygame.Rect(spec.rect), spec.get_float("speed", 40.0), top_limit,
+                        spec.get_float("delay", 2.5), spec.get_float("lag_tiles", 7.0) * T)
+        )
+
+    def _add_blade_trap(self, spec: ObjectSpec) -> None:
+        from objects.mechanisms import BladeTrap
+
+        for dx in range(max(1, spec.rect.width // T)):
+            rect = pygame.Rect(spec.rect.x + dx * T, spec.rect.y, T, spec.rect.height)
+            self._world.props.append(BladeTrap(rect, spec.get_float("speed", 9.0)))

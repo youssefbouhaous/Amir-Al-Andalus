@@ -235,10 +235,73 @@ def _sit(i: int, n: int) -> Pose:
     )
 
 
+def _dash(i: int, n: int) -> Pose:
+    # Arrow-straight lunge: body almost horizontal, legs streaming behind.
+    f = 1 if i % 2 else 0
+    return Pose(
+        hip_x=21.0, hip_y=HIP_Y - 2.0, lean=46 + 3 * f, head_tilt=-26,
+        front_thigh=-38, front_knee=28, back_thigh=-62, back_knee=18 + 8 * f,
+        front_upper=88, front_elbow=4, back_upper=-78, back_elbow=12,
+        hem=-26, plume=-70, eyes="wide", mouth="grit",
+    )
+
+
+def _slide(i: int, n: int) -> Pose:
+    # Baseball slide: leaning back, front leg shooting forward along the floor.
+    f = math.sin(math.tau * i / max(1, n))
+    return Pose(
+        hip_x=22.0, hip_y=GROUND_Y - 7.5, lean=-58, head_tilt=30,
+        front_thigh=88, front_knee=2, back_thigh=62, back_knee=104,
+        front_upper=40, front_elbow=40, back_upper=-150 + 6 * f, back_elbow=10,
+        hem=-30, plume=-80, eyes="happy", mouth="open",
+    )
+
+
+def _pound(i: int, n: int) -> Pose:
+    if i == 0:
+        # Tucked into a ball for the wind-up spin.
+        return Pose(
+            hip_y=HIP_Y - 3.0, lean=34, head_tilt=16, front_thigh=118, front_knee=150,
+            back_thigh=100, back_knee=146, front_upper=64, front_elbow=96,
+            back_upper=40, back_elbow=100, hem=20, plume=40, eyes="closed", mouth="grit",
+        )
+    # Plunging feet-first, arms flung up, robe flapping.
+    f = 1 if i % 2 else -1
+    return Pose(
+        hip_y=HIP_Y - 1.5, lean=-2, front_thigh=6, front_knee=4, back_thigh=-6, back_knee=6,
+        front_upper=168 + 6 * f, front_elbow=4, back_upper=-168 + 6 * f, back_elbow=4,
+        hem=18 * f, plume=178, eyes="wide", mouth="o",
+    )
+
+
+def _glide(i: int, n: int) -> Pose:
+    # Hands high, holding the shawl above like a sail; legs dangle and sway.
+    w = math.tau * i / max(1, n)
+    return Pose(
+        lean=4, head_tilt=-6, front_thigh=18 + 8 * math.sin(w), front_knee=24,
+        back_thigh=-8 + 8 * math.sin(w + 1.3), back_knee=30,
+        front_upper=158, front_elbow=-8, back_upper=-158, back_elbow=8,
+        hem=10 * math.sin(w), plume=-30, eyes="happy", mouth="smile",
+    )
+
+
+def _hang(i: int, n: int) -> Pose:
+    # Both hands on the ring, legs swinging (frame = swing phase).
+    swing = (i / max(1, n - 1)) * 2 - 1  # -1 back .. +1 forward
+    return Pose(
+        hip_x=24.0 - swing * 1.5, lean=-6 * swing, head_tilt=-10,
+        front_thigh=10 + 40 * swing, front_knee=10 + 30 * max(0.0, -swing),
+        back_thigh=-4 + 34 * swing, back_knee=20 + 30 * max(0.0, -swing),
+        front_upper=176, front_elbow=0, back_upper=-176, back_elbow=0,
+        hem=-14 * swing, plume=-20 * swing, eyes="open", mouth="grit" if abs(swing) > 0.6 else "none",
+    )
+
+
 POSES = {
     "idle": _idle, "run": _run, "skid": _skid, "jump": _jump, "apex": _apex, "fall": _fall,
     "wall_slide": _wall_slide, "throw": _throw, "hurt": _hurt, "death": _death,
     "victory": _victory, "door": _door, "sit": _sit,
+    "dash": _dash, "slide": _slide, "pound": _pound, "glide": _glide, "hang": _hang,
 }
 
 

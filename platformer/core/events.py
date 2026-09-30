@@ -20,6 +20,17 @@ class EventType(Enum):
     PLAYER_POWERED_UP = auto()  # value: new power level
     STAR_THROWN = auto()
     PLAYER_ATTACKED = auto()
+    PLAYER_DASHED = auto()
+    PLAYER_SLID = auto()
+    PLAYER_POUNDED = auto()     # value: impact strength
+    PLAYER_GLIDED = auto()
+    RING_GRABBED = auto()
+    RING_RELEASED = auto()
+    DASH_REFILLED = auto()
+    PLATE_PRESSED = auto()
+    GATE_OPENED = auto()
+    GATE_CLOSED = auto()
+    FLOOD_RISING = auto()
     EXTRA_LIFE = auto()
     COIN_COLLECTED = auto()
     PAGE_COLLECTED = auto()     # value: page index

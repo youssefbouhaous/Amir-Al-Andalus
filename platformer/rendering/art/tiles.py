@@ -515,6 +515,19 @@ def _paint_vase(s: pygame.Surface) -> None:
     pygame.draw.ellipse(s, (120, 170, 230), (11, 14, 4, 6))
 
 
+def _paint_cracked(s: pygame.Surface) -> None:
+    """Sandstone with a star-shaped fracture: breakable by dash or pound."""
+    s.fill(SAND)
+    _bevel(s, (236, 206, 150), SAND_DARK)
+    _speckle(s, SAND_DARK, 5, 6)
+    center = (15, 16)
+    for end in ((3, 4), (27, 6), (29, 25), (6, 28), (16, 1), (1, 17)):
+        pygame.draw.line(s, (110, 76, 44), center, end, 2)
+        pygame.draw.line(s, (250, 226, 180), (center[0] + 1, center[1] + 1), (end[0] + 1, end[1] + 1), 1)
+    pygame.draw.circle(s, (110, 76, 44), center, 3)
+    pygame.draw.rect(s, OUTLINE, s.get_rect(), 1)
+
+
 def _paint_unknown(s: pygame.Surface) -> None:
     s.fill((255, 0, 255))
 
@@ -566,6 +579,7 @@ TILE_PAINTERS: dict[str, Callable[[pygame.Surface], None]] = {
     "rock_small": _paint_rock_small,
     "books": _paint_books,
     "vase": _paint_vase,
+    "cracked": _paint_cracked,
 }
 
 

@@ -59,12 +59,16 @@ SHAKE: dict[EventType, float] = {
     EventType.BOSS_HIT: 0.5,
     EventType.BOSS_DEFEATED: 1.0,
     EventType.BOSS_ROAR: 0.35,
+    EventType.PLAYER_POUNDED: 0.38,
+    EventType.PLAYER_DASHED: 0.1,
+    EventType.GATE_OPENED: 0.15,
 }
 HITSTOP: dict[EventType, float] = {
     EventType.ENEMY_STOMPED: settings.JUICE.hitstop_stomp,
     EventType.PLAYER_HURT: settings.JUICE.hitstop_hurt,
     EventType.BOSS_HIT: settings.JUICE.hitstop_boss,
     EventType.BOSS_DEFEATED: 0.4,
+    EventType.PLAYER_POUNDED: 0.05,
 }
 # Events that interrupt the music with a short jingle.
 DEATH_MUSIC_FADE_MS = 400
@@ -186,6 +190,15 @@ class GameScene(Scene):
                 self.context.audio.fade_music(DEATH_MUSIC_FADE_MS)
             case EventType.CHECKPOINT_REACHED:
                 self._hud.toast("Lantern lit")
+            case EventType.BOSS_ROAR if event.value == "intro":
+                self.context.audio.play_music("boss")
+                self._hud.toast("The Ifrit!")
+            case EventType.BOSS_DEFEATED:
+                self.context.audio.fade_music(1500)
+            case EventType.SWORD_APPEARED:
+                self.context.audio.play_jingle("sword")
+                self.context.audio.play_music("ending")
+                self._hud.toast("Dawn returns to al-Andalus")
 
     def _check_outcomes(self) -> None:
         player = self._world.player
@@ -309,8 +322,14 @@ class GameScene(Scene):
         self._world.draw(surface, self._camera)
         if self._weather is not None:
             self._weather.draw(surface, offset, front=True)
-        if self._ambient is not None:
-            self._lighting.begin(self._ambient)
+        ambient = self._ambient
+        boss = self._world.boss
+        if ambient is not None and boss is not None and boss.dawn > 0:
+            # The stolen dawn returns once the Ifrit is sealed away.
+            dawn = (255, 236, 214)
+            ambient = tuple(round(a + (b - a) * boss.dawn) for a, b in zip(ambient, dawn))
+        if ambient is not None:
+            self._lighting.begin(ambient)
             for light in self._world.lights():
                 self._lighting.add(light, offset, self._world.time)
             self._lighting.apply(surface)

@@ -54,15 +54,23 @@ class GameOverScene(MessageScene):
 
 class VictoryScene(MessageScene):
     def __init__(self, context: "GameContext", session: GameSession) -> None:
-        super().__init__(
-            context,
-            "The Sword is Yours!",
-            [
+        if session.level_file == "level15.tmx":
+            # The end of Book II: the Ifrit is sealed and the night ends.
+            title = "Dawn Returns!"
+            lines = [
+                "The Ifrit is sealed in his lamp once more,",
+                "and the sun rises over the Alhambra.",
+                f"Final score  {session.score}",
+                "Press Enter",
+            ]
+        else:
+            title = "The Sword is Yours!"
+            lines = [
                 "The prince raises the Sword of Light over al-Andalus.",
                 f"Final score  {session.score}",
                 "Press Enter",
-            ],
-        )
+            ]
+        super().__init__(context, title, lines)
 
     def on_enter(self) -> None:
         self.context.audio.stop_music()

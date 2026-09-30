@@ -298,6 +298,64 @@ def _level_complete() -> np.ndarray:
     return track[:, 0] / 32767.0 if track is not None else np.zeros(1)
 
 
+def _dash() -> np.ndarray:
+    t = _t(0.28)
+    whoosh = _noise(0.28, 900, 9000) * np.sin(np.pi * np.clip(t / 0.28, 0, 1)) ** 0.6 * 0.4
+    zing = _sweep(500, 1600, 0.18, "tri", 0.5) * _env(_t(0.18), 0.002, 14) * 0.18
+    return _mix((whoosh, 0.0), (zing, 0.0))
+
+
+def _slide() -> np.ndarray:
+    t = _t(0.45)
+    return _noise(0.45, 300, 3500) * _env(t, 0.01, 5) * (0.7 + 0.3 * np.sin(math.tau * 30 * t)) * 0.3
+
+
+def _pound() -> np.ndarray:
+    t = _t(0.7)
+    boom = _sweep(120, 38, 0.7) * _env(t, 0.001, 5) * 0.9
+    crunch = _noise(0.7, 60, 2500) * _env(t, 0.001, 9) * 0.5
+    return _mix((boom, 0.0), (crunch, 0.0), (doum(_rng, 0.6) * 0.6, 0.0))
+
+
+def _pound_start() -> np.ndarray:
+    return _sweep(300, 900, 0.14, "tri", 0.7) * _env(_t(0.14), 0.002, 10) * 0.3
+
+
+def _glide() -> np.ndarray:
+    t = _t(0.6)
+    flap = _noise(0.6, 250, 2200) * (0.6 + 0.4 * np.abs(np.sin(math.tau * 6 * t))) * _env(t, 0.03, 4) * 0.3
+    return flap
+
+
+def _ring_grab() -> np.ndarray:
+    return _mix((bell(midi_hz(A5 + 12), 0.5) * 0.25, 0.0), (tek(_rng, True) * 0.3, 0.0))
+
+
+def _ring_release() -> np.ndarray:
+    t = _t(0.25)
+    return _sweep(400, 1000, 0.25, "tri", 0.6) * _env(t, 0.003, 9) * 0.25 + _noise(0.25, 800, 5000) * _env(t, 0.01, 14) * 0.12
+
+
+def _refill() -> np.ndarray:
+    return _seq([(A5, 0.06), (D6, 0.06), (FS5 + 12, 0.25)], _chime, gap=0.045) * 0.45
+
+
+def _plate() -> np.ndarray:
+    t = _t(0.5)
+    return _mix((bell(midi_hz(45), 0.6) * 0.5, 0.0), (_noise(0.5, 200, 3000) * _env(t, 0.001, 20) * 0.3, 0.0))
+
+
+def _gate() -> np.ndarray:
+    t = _t(1.1)
+    rattle = _noise(1.1, 300, 4000) * (0.5 + 0.5 * np.sign(np.sin(math.tau * 18 * t))) * _env(t, 0.02, 2.5) * 0.25
+    return _mix((rattle, 0.0), (bell(midi_hz(40), 1.0) * 0.3, 0.0))
+
+
+def _flood() -> np.ndarray:
+    t = _t(2.0)
+    return _noise(2.0, 60, 900) * np.sin(np.pi * np.clip(t / 2.0, 0, 1)) * 0.5
+
+
 SOUND_RECIPES: dict[str, Callable[[], np.ndarray]] = {
     "jump": _jump,
     "wall_jump": _wall_jump,
@@ -340,6 +398,17 @@ SOUND_RECIPES: dict[str, Callable[[], np.ndarray]] = {
     "menu_back": _menu_back,
     "pause": _pause,
     "page_turn": _page_turn,
+    "dash": _dash,
+    "slide": _slide,
+    "pound": _pound,
+    "pound_start": _pound_start,
+    "glide": _glide,
+    "ring_grab": _ring_grab,
+    "ring_release": _ring_release,
+    "refill": _refill,
+    "plate": _plate,
+    "gate": _gate,
+    "flood": _flood,
 }
 
 

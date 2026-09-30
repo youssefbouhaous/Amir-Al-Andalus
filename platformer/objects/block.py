@@ -47,6 +47,14 @@ class Block:
     def hit_from_below(self, player: "Player", world: "World") -> None:
         self._bump(world)
 
+    def smash(self, how: str, player: "Player", world: "World") -> bool:
+        """Hit by a move: ``how`` is "dash", "slide" or "pound" (from above).
+
+        Returns True if the block is gone and the move should carry on."""
+        if how == "pound":
+            self.hit_from_below(player, world)
+        return False
+
     def _bump(self, world: "World") -> None:
         self._bump_timer = BLOCKS.bump_duration
         world.events.emit(EventType.BLOCK_BUMPED, self.rect.midtop)
@@ -71,6 +79,13 @@ class BrickBlock(Block):
             world.break_block(self)
         else:
             self._bump(world)
+
+    def smash(self, how: str, player: "Player", world: "World") -> bool:
+        # A ground pound is heavy enough to break brick in any robe.
+        if how == "pound":
+            world.break_block(self)
+            return True
+        return False
 
 
 class QuestionBlock(Block):
@@ -186,6 +201,14 @@ class CrumbleBlock(Block):
     def hit_from_below(self, player: "Player", world: "World") -> None:
         self._bump(world)
 
+    def smash(self, how: str, player: "Player", world: "World") -> bool:
+        if how != "pound" or not self.solid:
+            return False
+        self._state = "shaking"
+        self._timer = 0.0
+        self.update(0.0, world)  # collapse right now
+        return True
+
     def draw(self, surface: pygame.Surface, camera: Camera) -> None:
         if self._state == "gone":
             return
@@ -268,3 +291,19 @@ class SwitchToggleBlock(Block):
         self._bump(world)
         if world.switch is not None:
             world.switch.toggle(world)
+
+
+class CrackedBlock(Block):
+    """Cracked sandstone. A dash, slide or ground pound bursts through it."""
+
+    def smash(self, how: str, player: "Player", world: "World") -> bool:
+        world.break_block(self)
+        emitters.debris(world.particles, self.rect.centerx, self.rect.centery,
+                        ((214, 176, 118), (182, 140, 88), (236, 206, 150)), 14, 0.9)
+        return True
+
+    def hit_from_below(self, player: "Player", world: "World") -> None:
+        if player.powered:
+            self.smash("bump", player, world)
+        else:
+            self._bump(world)

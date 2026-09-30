@@ -35,6 +35,17 @@ RETRIGGER_SECONDS = 0.035
 PREWARM = ("title", "story", "map", "level1", "level2", "level3", "level4", "level5", "level6", "boss", "ending")
 
 EVENT_SOUNDS: dict[EventType, str] = {
+    EventType.PLAYER_DASHED: "dash",
+    EventType.PLAYER_SLID: "slide",
+    EventType.PLAYER_POUNDED: "pound",
+    EventType.PLAYER_GLIDED: "glide",
+    EventType.RING_GRABBED: "ring_grab",
+    EventType.RING_RELEASED: "ring_release",
+    EventType.DASH_REFILLED: "refill",
+    EventType.PLATE_PRESSED: "plate",
+    EventType.GATE_OPENED: "gate",
+    EventType.GATE_CLOSED: "gate",
+    EventType.FLOOD_RISING: "flood",
     EventType.PLAYER_JUMPED: "jump",
     EventType.PLAYER_WALL_JUMPED: "wall_jump",
     EventType.COIN_COLLECTED: "coin",

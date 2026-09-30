@@ -22,10 +22,11 @@ CONTROLS = (
     "A / D or Left / Right - move",
     "Space / Z / K - jump (hold for higher jumps)",
     "X / J / Shift - slash; star robe also throws stars",
-    "S / Down - enter wells",
-    "Escape / P - pause     F11 - fullscreen",
-    "F1 - debug view     F5 - reload the level",
-    "Gamepad: left stick / D-pad, A to jump, B / X to attack",
+    "C / L / Ctrl - DASH (any direction, once in the air)",
+    "Down while running - SLIDE     Down in the air - POUND",
+    "Jump again in mid-air and hold - GLIDE     touch rings to SWING",
+    "S / Down - enter wells     Escape / P - pause     F11 - fullscreen",
+    "Gamepad: A jump, B / X attack, Y / LB / RB dash",
     "Enter / Escape - back",
 )
 
