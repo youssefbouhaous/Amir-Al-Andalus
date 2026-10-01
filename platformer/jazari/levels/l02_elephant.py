@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 T = 32
 SUNLIGHT = (255, 196, 110)
 SUN_GOLD = (255, 214, 120)
-STOLEN = (150, 136, 176)     # the sky with its sun taken away
+STOLEN = (124, 112, 164)     # the sky with its sun taken away
 WARM = (255, 214, 170)       # the sunset flooding back
 EVENING = (112, 118, 184)    # the blue hour after sundown
 CURTAIN = 3.0
@@ -82,6 +82,19 @@ class ElephantClock:
         self.mahout = 0
         self.gaze = (x - 400, floor)
         self.awake = False
+        # The great body is painted now (level load); the moving parts one per frame while it waits.
+        art.base()
+        art.tusk()
+        self._warm = [(art.ear, (k,)) for k in range(8)]
+        self._warm += [(art.trunk, (sway, lift)) for lift in (0, 1, 2, 3, 4, -1, -2, -3, -4) for sway in (-2, -1, 0, 1, 2)]
+        self._warm += [(art.serpent, (m,)) for m in (0, 1)] + [(art.phoenix, (k,)) for k in range(8)]
+        self._warm += [(art.falcon, (lean, hold)) for lean in range(4) for hold in (True, False)]
+        self._warm += [(art.mahout, (k,)) for k in range(4)] + [(art.scribe, (k,)) for k in range(4)]
+
+    def warm_up(self) -> None:
+        if self._warm:
+            paint, args = self._warm.pop(0)
+            paint(*args)
 
     # --- where things are (world coordinates) --------------------------------------------------------
     def at(self, point: tuple[float, float]) -> tuple[float, float]:
@@ -120,7 +133,7 @@ class ElephantClock:
     def release(self) -> None:
         sx, sy = self.sun
         self.released = True
-        self.free_sun = [sx, sy, -40.0, -150.0]
+        self.free_sun = [sx, sy, -70.0, 20.0]
 
     def update(self, dt: float) -> str | None:
         """Advance; returns "fling" on the frame the serpent lets go of its ball."""
@@ -130,12 +143,15 @@ class ElephantClock:
         self.strength += (self.strength_target - self.strength) * min(1.0, dt * 1.5)
         self.kneel += (self.kneel_target - self.kneel) * min(1.0, dt * 1.2)
         if self.released:
+            # Let go, it sets at last: gliding down to the horizon, reddening, sinking behind the roofs.
             sun = self.free_sun
-            sun[2] *= 1 - dt * 0.3
+            sun[2] *= 1 - dt * 0.25
+            sun[3] += 70 * dt
             sun[0] += sun[2] * dt
             sun[1] += sun[3] * dt
-            self.setting = min(1.0, self.setting + dt * 0.35)
-            self.strength_target = max(0.0, 1.0 - self.setting * 1.3)
+            self.setting = min(1.0, self.setting + dt * 0.4)
+            below = (sun[1] - (self.floor - 40)) / 120
+            self.strength_target = max(0.0, min(1.0, 1.0 - below))
         event = None
         if self.ritual:
             self.ritual_time += dt
@@ -218,6 +234,8 @@ class ElephantClock:
         trunk = art.trunk(max(-4, min(4, round(self.sway * 4))), lift_step)
         rx, ry = camera.to_screen(*self.root)
         surface.blit(trunk, (rx - art.TRUNK_ORIGIN[0], ry - art.TRUNK_ORIGIN[1]))
+        tusk = art.tusk()
+        surface.blit(tusk, (fx + art.TUSK_ROOT[0] - art.TUSK_ORIGIN[0], fy + art.TUSK_ROOT[1] - art.TUSK_ORIGIN[1]))
         # The eye: amber, glowing, following the prince.
         ex, ey = fx + art.EYE[0], fy + art.EYE[1]
         gx, gy = camera.to_screen(*self.gaze)
@@ -232,7 +250,8 @@ class ElephantClock:
 
     def lights(self) -> list[Light]:
         sx, sy = self.sun
-        lights = [Light(sx, sy, 440, SUNLIGHT, min(1.0, 0.4 + 0.6 * self.strength), bloom=0.45 * self.strength)]
+        sun_light = min(1.0, 0.3 + 0.55 * self.strength) * (self.strength if self.released else 1.0)
+        lights = [Light(sx, sy, 400, SUNLIGHT, sun_light, bloom=0.45 * self.strength)] if sun_light > 0.02 else []
         for wx, wy in art.WINDOWS:
             x, y = self.at((wx, wy))
             lights.append(Light(x, y, 60, SUNLIGHT, 0.5 * self.strength, flicker=0.3))
@@ -245,8 +264,8 @@ class ElephantClock:
 class Beam:
     def __init__(self, thief: Gilded, sun: tuple[float, float]) -> None:
         self.thief = thief
-        self.aim = sun
-        self.end = sun
+        self.aim = thief.chest          # he lands from the castle already in the light
+        self.end = self.aim
         self.blocker = ""
         self.time = random.uniform(0, 10)
 
@@ -533,6 +552,7 @@ class GildedThieves(Guardian):
         engaged = self.left - 16 <= player.body.centerx <= self.right + 40 and player.is_controllable
         clock.gaze = (player.body.centerx, player.body.centery)
         stage = self.stage
+        clock.warm_up()
         if stage == "sleep":
             if player.is_controllable and self.left + 6 * T < player.body.centerx < self.right + 64:
                 self._wake(world)

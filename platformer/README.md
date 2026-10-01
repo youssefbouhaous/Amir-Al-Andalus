@@ -130,6 +130,61 @@ every bubble in reach, snaps the strings and stuns the performers while it pecks
 one. Elsewhere it knocks creatures senseless and shakes golden fruit from the
 orange trees.
 
+On the last rooftop of **level 2, Above the Amber Market**, the thief's **Elephant
+Clock** - a colossal brass elephant with a castle on its back, after al-Jazari's
+most famous machine - holds the setting sun in its trunk so that sundown never
+comes. Three **Gilded Thieves** leap down from its castle: **Tariq the
+Mirror-Thief** (a burning lance of reflected sun, and a vanishing glint), **Samira
+the Fire-Eater** (fire breath, whirling fire poi, burning embers) and **Hakim the
+Snake-Charmer** (brass cobras from his baskets, and the basket trick). A beam of
+the stolen sun follows each one: while it rests on him he is gold and blows ring
+off. Get into the light beside him - your own body shades him - or strike when he
+moves faster than the beam can follow. Every hour of the fight the elephant keeps
+time: the phoenix turns, a falcon drops a golden ball, and the serpent hurls it
+across the roof. The level's pages teach the **Night Qalam**, the scribe's pen
+whose ink is the night itself: press **V / E** to write a stroke of starry ink
+ahead of you. It blots a thief (the sun can't gild him while the ink lasts),
+cuts the beams, the lance and the flame short, swallows the sun-balls, and hangs
+in the air for a few seconds as a road you can stand on.
+
+In **level 3, The Moonlit Library**, the three pages teach **The Folded Fulcrum**:
+an ivory-and-oxblood spring jack that unfolds from Amir's cuff. Press **V / E**
+on firm ground to raise a temporary step; its rising ribs also repel ordinary
+creatures. Beside the finish stands al-Muqallid's **Castle of Borrowed Hours**, an
+enchanted castle clock after al-Jazari's (1206): a zodiac arch where the sun and
+the moon ride the same track, a gallery of twelve hour-doors, twelve night-lamps,
+falcons over cymbals, and the library's gentle keeper, **the Silent Archivist** -
+an automaton made like a book - chained into its works by three chains of glowing
+script. Its arms are the clock's hands: they sweep low, press, and comb high
+(jump, dodge and slide; the hands shove rather than take health).
+
+Free a drive by **jumping, then pressing Down to pound its floor treadle** when
+white light rises from its jaw: each stroke turns one of six teeth. The clock
+**borrows hours**: every hour a door opens and an echo of Amir steps out, replaying
+exactly what he did one, two or three hours before, in step with the clock. Echoes
+are ghosts you pass through - one may even land a stroke you missed - but where you
+once slashed, an echo's blade stings, and every sting or shove lights two of the
+twelve lamps. Twelve lamps strike **midnight**, and the drive you were working
+rewinds. Face an echo and strike to shatter it and take its hour back. With the
+Fulcrum, use V beside the jaw: the clock **stops** - the world turns silver, echoes
+stand as glass that any blow shatters - and one pound frees the whole drive. Free
+all three and the doors open, the borrowed hours go home as light, the sun climbs
+to stand beside the moon, and the keeper opens its book. Progress survives
+checkpoint retries; the map files are unchanged.
+
+To try just this encounter without touching your real save:
+
+```bash
+uv run --active python -m tools.preview_archivist
+# The difficult route, with no manuscript power:
+uv run --active python -m tools.preview_archivist --without-power
+```
+
+The Archivist and Fulcrum are fictional mechanical adaptations, not historical
+reconstructions or quotations from al-Jazari. The builder is honoured, never the
+villain; al-Muqallid misuses his work. Historical reference: the Met's
+[water-clock manuscript folio](https://www.metmuseum.org/art/collection/search/451302).
+
 Short animated interludes connect the later chapters using existing scenery.
 The original title screen, chapter cards, HUD, pause menu, controls and map files
 are unchanged. **Enter** advances a story beat; **Escape** skips the whole scene.

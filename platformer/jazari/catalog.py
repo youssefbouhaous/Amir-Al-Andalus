@@ -42,6 +42,10 @@ class Entry:
 def _entries() -> list[Entry]:
     from jazari.levels import l01_moonclock as l01
     from jazari.levels import l01_nightingale as nightingale
+    from jazari.levels import l02_elephant as l02
+    from jazari.levels import l02_qalam as qalam
+    from jazari.levels.l03_archivist import SilentArchivist
+    from jazari.levels.l03_fulcrum import FoldedFulcrum
 
     return [
         Entry(
@@ -54,6 +58,30 @@ def _entries() -> list[Entry]:
             "bursts, and those who hide inside it cover their ears. Let the bird ride upon "
             "your shoulder; when it sings, strike.",
             "The nightingale sings: the bubble bursts, the string breaks, the player covers his ears.",
+        ),
+        Entry(
+            "level2.tmx", "Chapter of clocks with a scribe: the pen of night",
+            l02.GildedThieves, qalam.NightQalam, 214, 22,
+            "Where night is written, the stolen sun cannot pass.",
+            "Upon my elephant clock sits a scribe who writes the hours. I cut him a second "
+            "reed and filled it with the ink of the night, which carries its own stars. Where "
+            "it writes, sunlight cannot pass; what it touches forgets the light, and gold falls "
+            "away from it. A line of it will even bear a man's weight, until it dries. If the "
+            "sun is ever stolen, write between the sun and the thief.",
+            "The pen writes across the beam: the gold leaves the thief, and he can be struck.",
+        ),
+        Entry(
+            "level3.tmx", "Chapter of the castle clock and the folded lever",
+            SilentArchivist, FoldedFulcrum, 249, 22,
+            "A folded lever in the jaw stops the clock; even borrowed hours stand still.",
+            "Amir's notes, after al-Jazari: the builder made servants, not jailers. "
+            "Al-Muqallid has chained this keeper inside a clock that borrows hours: each "
+            "hour a door opens and you step out of it as you were an hour before. When "
+            "white light rises from a jaw, pound its treadle to turn one tooth; six free "
+            "a drive. Set the Fulcrum in the jaw with V and the clock stops: borrowed "
+            "hours stand as glass, and one pound turns all six. On firm ground its ribs "
+            "lift a step.",
+            "Brace the jaw and time stands still: one pound frees the whole drive.",
         ),
     ]
 

@@ -96,6 +96,12 @@ TRACKS: dict[str, TrackSpec] = {
     # The Moon Troupe's show at the orchard fountain: a quick, glittering dance.
     "troupe": TrackSpec("hijaz", 62, 138, "baladi", bars=16, lead="qanun", density=0.85, drums=1.15,
                         reverb=0.3, bells=True, seed=41),
+    # The Gilded Thieves' rooftop heist under a stolen sun: a driving, sorrowful saba.
+    "gilded": TrackSpec("saba", 62, 126, "maqsum", bars=16, lead="oud", density=0.8, drums=1.2,
+                        reverb=0.3, bells=True, seed=52),
+    # The Castle of Borrowed Hours: a slow night waltz of bells and qanun in a sleeping library.
+    "borrowed": TrackSpec("nahawand", 60, 96, "samai", bars=12, lead="qanun", density=0.6, drums=0.7,
+                          reverb=0.5, bells=True, seed=63),
 }
 
 

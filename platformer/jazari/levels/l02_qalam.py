@@ -284,7 +284,7 @@ class NightQalam(Power):
         cx, cy = center
         book = (cx, cy - 90)
         rng = random.Random(21)
-        name = qalam.name_in_night(70)
+        name = qalam.name_in_night(104)
         nw, nh = name.get_size()
         name_rect = name.get_rect(center=(round(book[0]), round(book[1] - 10)))
         well_pos = (book[0] + nw * 0.62, book[1] + 40)

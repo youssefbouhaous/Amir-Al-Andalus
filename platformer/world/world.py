@@ -344,6 +344,9 @@ class World:
     # --- Draw -------------------------------------------------------------------
     def draw(self, surface: pygame.Surface, camera: Camera) -> None:
         view = camera.view_rect
+        if self.wonder is not None:
+            # Machines that stand behind the rooftops (level 2's elephant) go before the tiles.
+            self.wonder.draw_scenery(surface, camera)
         self.terrain.draw_back(surface, camera)
         self.particles.draw(surface, camera.offset, front=False)
         for prop in self.props:

@@ -34,7 +34,6 @@ if TYPE_CHECKING:
 T = 32
 ALL_PAGES = frozenset({0, 1, 2})
 BOLT_TIME = 1.1
-NIGHT = (118, 128, 198)
 
 
 _prewarmed = False
@@ -179,7 +178,7 @@ class WonderDirector:
         if dusk <= 0.01:
             return base
         day = base if base is not None else (255, 255, 255)
-        return tuple(round(a + (b - a) * dusk) for a, b in zip(day, NIGHT))
+        return tuple(round(a + (b - a) * dusk) for a, b in zip(day, self.guardian.night))
 
     def lights(self) -> list[Light]:
         lights = list(self.guardian.lights())
@@ -188,6 +187,9 @@ class WonderDirector:
         return lights
 
     # --- drawing ------------------------------------------------------------------------------------
+    def draw_scenery(self, surface: pygame.Surface, camera: Camera) -> None:
+        self.guardian.draw_scenery(surface, camera)
+
     def draw_back(self, surface: pygame.Surface, camera: Camera) -> None:
         self._prince_on_screen = camera.to_screen(self.world.player.body.centerx, self.world.player.body.centery)
         for goal in self._held_goals:

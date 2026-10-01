@@ -16,6 +16,9 @@ import pygame
 
 from audio import music
 from audio.music import SR, bell, doum, midi_hz, pluck, tek
+from audio.archive_synth import RECIPES as ARCHIVE_RECIPES
+from audio.gilded_synth import RECIPES as GILDED_RECIPES
+from audio.borrowed_synth import RECIPES as BORROWED_RECIPES
 
 logger = logging.getLogger(__name__)
 
@@ -541,6 +544,9 @@ def _wonder_shove() -> np.ndarray:
 
 
 SOUND_RECIPES: dict[str, Callable[[], np.ndarray]] = {
+    **ARCHIVE_RECIPES,
+    **GILDED_RECIPES,
+    **BORROWED_RECIPES,
     "jump": _jump,
     "wall_jump": _wall_jump,
     "land": _land,

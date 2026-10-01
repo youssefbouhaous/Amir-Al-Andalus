@@ -190,11 +190,9 @@ def base() -> pygame.Surface:
     c.circle(BRASS, P(-150, -104), 40)
     # Mouth and the root of the tusks.
     c.polygon(BRASS_DEEP, PS([(-214, -84), (-196, -70), (-176, -74), (-190, -88)]), OUTLINE, 0.8)
-    for dx, dy, w in ((0, 0, 7.0), (22, 8, 5.4)):
-        tusk = [(-208 + dx, -80 + dy), (-240 + dx, -70 + dy), (-266 + dx, -84 + dy), (-278 + dx, -108 + dy)]
-        c.tapered(IVORY_SHADE if dx else IVORY, PS(tusk), w, 2.2)
-        c.circle(GOLD, P(tusk[-1][0], tusk[-1][1]), 2.6 if dx else 3.4, OUTLINE, 0.6)
-        c.line(GOLD, P(-222 + dx, -76 + dy), P(-222 + dx, -84 + dy), 2.2)
+    far = [(-186, -72), (-218, -62), (-244, -76), (-256, -100)]
+    c.tapered(IVORY_SHADE, PS(far), 5.4, 2.0)
+    c.circle(GOLD, P(far[-1][0], far[-1][1]), 2.6, OUTLINE, 0.6)
     # The headdress: a gold chanfron with a ruby, and strings of pearls.
     plate = [(-226, -186), (-178, -192), (-176, -170), (-196, -118), (-214, -126)]
     c.polygon(GOLD, PS(plate), OUTLINE, 1.0)
@@ -232,6 +230,28 @@ def base() -> pygame.Surface:
         lattice.blit(bars, (0, 0))
     image.blit(lattice, (0, 0))
     return image
+
+
+TUSK_SIZE = (110, 70)
+TUSK_ORIGIN = (100, 40)   # where the tusk leaves the jaw, inside its sprite
+TUSK_ROOT: Point = (-206.0, -82.0)
+
+
+@lru_cache(maxsize=None)
+def tusk() -> pygame.Surface:
+    """The near tusk, ivory banded with gold, drawn in front of the trunk."""
+    w, h = TUSK_SIZE
+    c = Canvas(w, h, scale=3, fringe=OUTLINE)
+    ox, oy = TUSK_ORIGIN
+    curve = [(ox, oy), (ox - 34, oy + 12), (ox - 66, oy + 2), (ox - 86, oy - 26)]
+    c.tapered(OUTLINE, curve, 8.4, 3.4)
+    c.tapered(IVORY, curve, 7.0, 2.4)
+    c.tapered((255, 252, 240), [(x, y - 2.2) for x, y in curve[:3]], 2.0, 0.8)
+    for x, y in (curve[0], (ox - 20, oy + 8)):
+        c.line(GOLD, (x, y - 7), (x, y + 7), 2.4)
+    c.circle(GOLD, curve[-1], 3.6, OUTLINE, 0.7)
+    c.circle(RUBY, curve[-1], 1.4)
+    return c.finish()
 
 
 # --- the ear -------------------------------------------------------------------------------------------

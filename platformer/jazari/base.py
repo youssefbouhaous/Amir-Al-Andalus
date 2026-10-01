@@ -228,7 +228,11 @@ class Guardian:
         """Where the camera should frame the fight (None = follow the prince)."""
         return None
 
-    dusk: float = 0.0     # 0..1: how far this machine has pulled the night over the level
+    dusk: float = 0.0     # 0..1: how far this machine has pulled its sky over the level
+    night: Color = (118, 128, 198)   # the colour of that sky (ambient light at full dusk)
+
+    def draw_scenery(self, surface: pygame.Surface, camera: Camera) -> None:
+        """Drawn before the level's tiles: machines that stand behind the rooftops."""
 
     @classmethod
     def miniature(cls, surface: pygame.Surface, rect: pygame.Rect, t: float, solved: float) -> None:

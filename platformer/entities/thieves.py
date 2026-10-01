@@ -78,9 +78,9 @@ def _inked(image: pygame.Surface, seed: int) -> pygame.Surface:
         w, h = image.get_size()
         blots = pygame.Surface((w, h), pygame.SRCALPHA)
         rng = random.Random(seed)
-        for _ in range(7):
-            x, y = rng.uniform(w * 0.3, w * 0.7), rng.uniform(h * 0.2, h * 0.95)
-            r = rng.uniform(3, 7)
+        for _ in range(5):
+            x, y = rng.uniform(w * 0.32, w * 0.68), rng.uniform(h * 0.3, h * 0.92)
+            r = rng.uniform(1.8, 3.6)
             pygame.draw.circle(blots, (*INK, 255), (round(x), round(y)), round(r))
             pygame.draw.line(blots, (*INK, 255), (round(x), round(y)), (round(x + rng.uniform(-1, 1)), round(y + r + rng.uniform(2, 6))), 2)
         mask = image.copy()
