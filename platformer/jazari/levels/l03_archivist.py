@@ -280,7 +280,7 @@ class SilentArchivist(Guardian):
         self.cymbal_ring = [max(0.0, r - dt * 1.2) for r in self.cymbal_ring]
         self.chain_flash = [max(0.0, f - dt * 1.5) for f in self.chain_flash]
         self._update_doors(dt)
-        self._update_effects(dt, world)
+        self._update_effects(dt)
         self.dusk += ((1.0 if self.braced > 0 or self.stage == "midnight" else 0.0) - self.dusk) * min(1.0, dt * 8)
         if self.resolved:
             self.released = 3
@@ -324,7 +324,7 @@ class SilentArchivist(Guardian):
                 self._release_drive(world)
             return
         if self.stage == "ending":
-            self._update_ending(dt, world)
+            self._update_ending(world)
             return
         # Leaving to fetch pages never traps the player or consumes the windows.
         if not nearby or not player.is_controllable:
@@ -417,7 +417,7 @@ class SilentArchivist(Guardian):
         self.falcon_lean = 3
         self.cymbal_ring = [1.0, 1.0]
         world.events.emit(EventType.MACHINE_CLUNK, (self.x, self.floor - 300), "cymbal")
-        self._return_hours(world)
+        self._return_hours()
         self.debt = 0.0
         self._set_stage("ending" if self.released == 3 else "turn")
         if self.released == 3:
@@ -527,7 +527,7 @@ class SilentArchivist(Guardian):
         if sound:
             world.events.emit(EventType.MACHINE_CLUNK, (s.x, s.bottom - 14), "echo_shatter")
 
-    def _return_hours(self, world):
+    def _return_hours(self):
         """A drive released: every borrowed hour flies home to its door."""
         for echo in self.echoes:
             if echo.alive and echo.sample is not None:
@@ -558,7 +558,7 @@ class SilentArchivist(Guardian):
         return self.x, self.floor - 108
 
     # --- the ending ---------------------------------------------------------------------------------------------------
-    def _update_ending(self, dt, world):
+    def _update_ending(self, world):
         t = self.stage_time
         # The doors open in a wave, left to right, and the hours go home as light.
         for k in range(12):
@@ -580,7 +580,7 @@ class SilentArchivist(Guardian):
             target = 1.0 if self._door_hold[k] > 0 else 0.0
             self.doors[k] += (target - self.doors[k]) * min(1.0, dt * 7)
 
-    def _update_effects(self, dt, world):
+    def _update_effects(self, dt):
         for ribbon in self.ribbons:
             ribbon[2] += dt * (1.6 if len(ribbon) < 4 else 1.2)
         self.ribbons = [r for r in self.ribbons if r[2] < 1.0]
@@ -766,9 +766,9 @@ class SilentArchivist(Guardian):
                 continue
             start = self._chain_start(drive, tips)
             art.draw_chain(surface, camera.to_screen(*start), (x + TREADLES[drive], floor - 30), t, strength)
-        self._draw_keeper(surface, camera, x, floor, tips)
+        self._draw_keeper(surface, x, floor, tips)
 
-    def _draw_keeper(self, surface, camera, x, floor, tips):
+    def _draw_keeper(self, surface, x, floor, tips):
         t = self.time if self.resolved else self.clock
         freed = self.resolved or self.stage in ("ending", "done")
         bow = 1.0 if self.resolved or self.stage == "done" else (art.smooth(self.stage_time / 2.2) if self.stage == "ending" else 0.0)
