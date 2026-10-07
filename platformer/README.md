@@ -185,6 +185,28 @@ reconstructions or quotations from al-Jazari. The builder is honoured, never the
 villain; al-Muqallid misuses his work. Historical reference: the Met's
 [water-clock manuscript folio](https://www.metmuseum.org/art/collection/search/451302).
 
+At the end of **level 4, The Singing Aqueduct**, the thief's **Sky-Noria** stands
+where the river should be lifted into the aqueduct: a water-wheel taller than the
+palace walls, turned by a **brass ox** walking round a tower beside it, after
+al-Jazari's water-raising machines. Its pots throw the water up into the sky, where
+it flows away as a river among the clouds, carp and all, and the dawn below turns
+blue-green. The stage floods with what it leaves, and three **River-Thieves** run
+down the wheel's rim: **Yusuf the Water-Seller** (a jet from his goatskin,
+boomerang brass cups, a belly-flop), **Nur the Net-Fisher** (a weighted net, carp
+hooked out of the sky river and dropped on you, a pole-vault over your head) and
+**Hamida the Rain-Caller** (spears of rain called down from the river, a parasol
+glide, a spinning parasol that pushes you away). While a thief stands in the
+stolen water the noria lends him its strength: coils of river climb him and drink
+every blow. Strike when he leaps, or when the ox stops to drink - the wheel halts,
+the flood drains, and he is only a man until the ox bellows and the river comes
+back as a wave (jump it). The level's pages teach the **Rose Fountain**: press
+**V / E** to throw a brass rose that blooms into a fountain under the nearest thief
+ahead. It holds him kicking in the water, out of the flood, while you strike, then
+drops him dazed. Stand still (or jump) and it blooms under you instead, carrying you
+higher than any jump; it also tosses ordinary creatures and stops the thieves'
+missiles. Beat all three and the ox shakes off its harness, the river comes down
+out of the sky, a rainbow stands over the aqueduct and its fountains sing again.
+
 Short animated interludes connect the later chapters using existing scenery.
 The original title screen, chapter cards, HUD, pause menu, controls and map files
 are unchanged. **Enter** advances a story beat; **Escape** skips the whole scene.

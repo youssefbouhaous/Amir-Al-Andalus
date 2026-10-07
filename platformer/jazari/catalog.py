@@ -46,6 +46,8 @@ def _entries() -> list[Entry]:
     from jazari.levels import l02_qalam as qalam
     from jazari.levels.l03_archivist import SilentArchivist
     from jazari.levels.l03_fulcrum import FoldedFulcrum
+    from jazari.levels.l04_fountain import RoseFountain
+    from jazari.levels.l04_noria import RiverThieves
 
     return [
         Entry(
@@ -82,6 +84,18 @@ def _entries() -> list[Entry]:
             "hours stand as glass, and one pound turns all six. On firm ground its ribs "
             "lift a step.",
             "Brace the jaw and time stands still: one pound frees the whole drive.",
+        ),
+        Entry(
+            "level4.tmx", "Chapter of fountains that hold a ball upon the water",
+            RiverThieves, RoseFountain, 257, 22,
+            "Whoever stands in stolen water borrows the noria's strength.",
+            "I made a fountain whose water rises and holds a ball dancing upon its crest, and will not "
+            "let it fall until the water fails. The thief has set a noria over the river and taught it "
+            "to pour the water into the sky; whoever stands in the water it leaves borrows its patient "
+            "strength, and no blow will reach him. Throw this rose of brass beneath such a one, and the "
+            "fountain will lift him out of the stolen water: in the air he is only himself. The rose "
+            "will lift you too, where the stairs give out.",
+            "The rose blooms under the thief: the fountain lifts him, and the river lets him go.",
         ),
     ]
 

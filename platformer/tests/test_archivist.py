@@ -91,7 +91,7 @@ class ArchivistTests(unittest.TestCase):
     def test_only_level_three_registered_and_terrain_untouched(self):
         self.assertIs(entry_for("level3.tmx").guardian, SilentArchivist)
         self.assertEqual(entry_for("level1.tmx").power.key, "nightingale")
-        self.assertIsNone(entry_for("level4.tmx"))
+        self.assertIsNone(entry_for("level5.tmx"))
         plain = build_world(self.world.level, self.sprites, self.assets)
         self.assertEqual(self.world.collision._cells, plain.collision._cells)
         self.assertFalse(self.guardian.lethal)

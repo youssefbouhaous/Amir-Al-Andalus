@@ -6,8 +6,9 @@ Thieves - are real people like Amir: the same bones, joints and proportions
 but in their own clothes and headwear.
 
 A ``Costume`` chooses colours and two shapes: the torso (``dress``, ``vest``,
-``cloak``, ``scale`` or ``robe``) and the head (``dancer``, ``juggler``,
-``weaver``, ``veiled``, ``firebraid`` or ``elder``).
+``cloak``, ``scale``, ``robe``, ``apron`` or ``tunic``) and the head
+(``dancer``, ``juggler``, ``weaver``, ``veiled``, ``firebraid``, ``elder``,
+``saqqa``, ``fisher`` or ``crone``).
 Poses are ordinary ``prince.Pose`` values, so every animation below is just
 a function from a frame index to joint angles.
 """
@@ -45,8 +46,8 @@ class Costume:
     lower_shade: Color
     shoe: Color
     hair: Color
-    body: str        # "dress" | "vest" | "cloak" | "scale" | "robe"
-    head: str        # "dancer" | "juggler" | "weaver" | "veiled" | "firebraid" | "elder"
+    body: str        # "dress" | "vest" | "cloak" | "scale" | "robe" | "apron" | "tunic"
+    head: str        # "dancer" | "juggler" | "weaver" | "veiled" | "firebraid" | "elder" | "saqqa" | "fisher" | "crone"
     eye: Color = (34, 22, 24)
     glow: Color | None = None
     mask: bool = True
@@ -91,6 +92,22 @@ HAKIM = Costume(
     "hakim", skin=(166, 108, 74), top=(240, 232, 214), top_shade=(202, 192, 172), trim=(224, 182, 84),
     accent=(42, 124, 84), lower=(228, 220, 202), lower_shade=(190, 180, 160), shoe=(122, 72, 42),
     hair=(40, 146, 96), body="robe", head="elder", mask=False,
+)
+# Level 4: the River-Thieves of the Singing Aqueduct.
+YUSUF = Costume(
+    "yusuf", skin=(186, 124, 84), top=(242, 236, 222), top_shade=(204, 194, 174), trim=(232, 186, 84),
+    accent=(146, 90, 50), lower=(58, 70, 128), lower_shade=(40, 48, 92), shoe=(150, 50, 40),
+    hair=(244, 238, 226), body="apron", head="saqqa", mask=False,
+)
+NUR = Costume(
+    "nur", skin=(204, 146, 104), top=(40, 150, 140), top_shade=(26, 106, 100), trim=(240, 220, 160),
+    accent=(214, 184, 120), lower=(222, 200, 152), lower_shade=(184, 160, 116), shoe=(190, 130, 92),
+    hair=(52, 92, 170), body="tunic", head="fisher", mask=False,
+)
+HAMIDA = Costume(
+    "hamida", skin=(178, 122, 90), top=(40, 46, 108), top_shade=(26, 30, 74), trim=(214, 224, 244),
+    accent=(70, 196, 200), lower=(58, 66, 140), lower_shade=(38, 44, 98), shoe=(40, 34, 50),
+    hair=(236, 236, 240), body="cloak", head="crone", mask=False,
 )
 LONG_ROBES = ("cloak", "robe")
 
@@ -235,8 +252,59 @@ def _robe(c: Canvas, sk: Skeleton, pose: Pose, k: Costume) -> None:
     c.polygon(shade(k.accent, -0.25), [at(-4.6, 1.6), at(4.5, 1.6), at(4.5, 0.2), at(-4.6, 0.2)], OUTLINE, 0.5)
 
 
+def _apron(c: Canvas, sk: Skeleton, pose: Pose, k: Costume) -> None:
+    """The water-seller: a loose shirt over a round belly, a leather apron, brass cups on the sash."""
+    at = _axes(sk, pose)
+    swing = math.radians(pose.hem)
+
+    def swung(point: tuple[float, float], amount: float) -> tuple[float, float]:
+        return point[0] - math.sin(swing) * amount, point[1] + math.cos(swing) * amount * 0.4
+
+    shirt = [at(-3.8, TORSO - 0.4), at(3.4, TORSO - 0.4), at(5.0, TORSO - 3.0), at(6.6, 3.6), swung(at(5.8, -0.6), 2.0),
+             swung(at(-4.8, -0.6), 2.0), at(-4.8, 1.4), at(-4.4, TORSO - 3.4)]
+    c.polygon(k.top, shirt, OUTLINE, 0.9)
+    c.polygon(k.top_shade, [at(-3.8, TORSO - 0.4), at(-1.4, TORSO - 0.4), at(-1.8, 1.0), swung(at(-4.8, -0.6), 2.0),
+                            at(-4.8, 1.4), at(-4.4, TORSO - 3.4)])
+    # A leather apron from the chest to the knees, swinging as he waddles.
+    apron = [at(0.8, TORSO - 1.2), at(4.4, TORSO - 1.4), at(6.2, 3.0), swung(at(5.6, -6.2), 3.0), swung(at(0.6, -6.2), 3.0), at(0.4, 1.0)]
+    c.polygon(k.accent, apron, OUTLINE, 0.8)
+    c.lines(shade(k.accent, -0.25), [at(1.6, TORSO - 2.4), at(2.0, 1.2), swung(at(1.6, -5.4), 3.0)], 0.4)
+    c.line(k.accent, at(1.0, TORSO - 1.0), at(-1.6, TORSO + 0.4), 0.7)
+    # A red sash, and the brass cups he clinks to call his customers.
+    c.polygon((196, 52, 48), [at(-4.8, 2.4), at(6.2, 2.8), at(6.2, 0.8), at(-4.8, 0.4)], OUTLINE, 0.6)
+    for s in range(3):
+        cup = at(-3.8 + s * 1.9, -0.4 - (s % 2) * 0.5)
+        c.circle((232, 186, 84), cup, 1.0, OUTLINE, 0.35)
+        c.circle((255, 232, 160), (cup[0] - 0.3, cup[1] - 0.3), 0.4)
+
+
+def _tunic(c: Canvas, sk: Skeleton, pose: Pose, k: Costume) -> None:
+    """The fisher: a short sleeveless tunic, a rope belt, a necklace of shells."""
+    at = _axes(sk, pose)
+    swing = math.radians(pose.hem)
+    hem_back = (at(-4.6, -2.4)[0] - math.sin(swing) * 2.6, at(-4.6, -2.4)[1] + math.cos(swing) * 1.4)
+    hem_front = (at(4.8, -2.4)[0] - math.sin(swing) * 2.6, at(4.8, -2.4)[1] + math.cos(swing) * 1.4)
+    tunic = [at(-3.6, TORSO - 0.4), at(3.6, TORSO - 0.4), at(4.2, TORSO - 3.2), at(4.4, 0.4), hem_front, hem_back,
+             at(-4.4, 0.4), at(-4.2, TORSO - 3.2)]
+    c.polygon(k.top, tunic, OUTLINE, 0.9)
+    c.polygon(k.top_shade, [at(-3.6, TORSO - 0.4), at(-1.2, TORSO - 0.4), at(-1.4, 0.4), hem_back, at(-4.4, 0.4), at(-4.2, TORSO - 3.2)])
+    # A band of woven waves at the hem.
+    c.line(k.trim, hem_back, hem_front, 0.7)
+    for s in range(4):
+        u = (s + 0.5) / 4
+        x = hem_back[0] + (hem_front[0] - hem_back[0]) * u
+        y = hem_back[1] + (hem_front[1] - hem_back[1]) * u
+        c.circle(k.trim, (x, y - 0.9), 0.45)
+    c.lines(k.accent, [at(-4.4, 1.8), at(0.0, 1.6), at(4.4, 2.0)], 0.8)
+    knot = at(3.6, 1.6)
+    c.capsule(k.accent, knot, (knot[0] + 0.8, knot[1] + 3.0), 0.5)
+    for s in range(5):
+        c.circle((250, 244, 230), at(-1.4 + s * 1.0, TORSO - 1.4 - abs(s - 2) * 0.35), 0.5)
+
+
 TORSOS: dict[str, Callable[[Canvas, Skeleton, Pose, Costume], None]] = {
     "dress": _dress, "vest": _vest, "cloak": _cloak, "scale": _scale, "robe": _robe,
+    "apron": _apron, "tunic": _tunic,
 }
 
 
@@ -401,9 +469,63 @@ def _head_elder(c: Canvas, sk: Skeleton, pose: Pose, k: Costume) -> None:
     _kohl_eyes(c, hx, hy, pose, k, BEARD)
 
 
+def _head_saqqa(c: Canvas, sk: Skeleton, pose: Pose, k: Costume) -> None:
+    """The water-seller: a white cloth wound round a red felt cap, a moustache like a pair of oars."""
+    hx, hy = _face(c, sk, pose, k)
+    c.circle(shade(k.skin, -0.08), (hx + 1.6, hy + 3.6), 2.6)
+    c.polygon((182, 44, 48), [(hx - 3.6, hy - 6.6), (hx + 3.2, hy - 6.8), (hx + 2.4, hy - 10.8), (hx - 2.8, hy - 10.8)], OUTLINE, 0.7)
+    c.ellipse(k.hair, (hx - 6.2, hy - 8.4, 12.2, 6.2), OUTLINE, 0.8)
+    for step in range(3):
+        c.line(shade(k.hair, -0.18), (hx - 5.6 + step * 1.2, hy - 4.0 - step * 1.4), (hx + 5.4, hy - 6.6 + step * 1.0), 0.45)
+    c.circle(k.trim, (hx + 3.8, hy - 5.8), 0.8, OUTLINE, 0.3)
+    _eyes_and_brow(c, hx, hy, pose, k)
+    c.line(OUTLINE, (hx + 1.4, hy - 2.2), (hx + 4.0, hy - 2.0), 0.8)
+    c.polygon((34, 24, 22), [(hx + 5.6, hy + 2.0), (hx + 3.0, hy + 2.6), (hx + 0.4, hy + 3.4), (hx + 1.0, hy + 2.2),
+                             (hx + 3.2, hy + 1.6)], OUTLINE, 0.3)
+    c.circle((34, 24, 22), (hx + 0.6, hy + 2.9), 0.8)
+
+
+def _head_fisher(c: Canvas, sk: Skeleton, pose: Pose, k: Costume) -> None:
+    """The fisher: a blue headscarf knotted at the nape, its tails blowing, a shell at the ear."""
+    hx, hy = _face(c, sk, pose, k)
+    sway = math.radians(pose.plume)
+    for lift in (0.0, 1.6):
+        tail = [(hx - 5.4, hy - 0.6), (hx - 8.0 - math.sin(sway) * 1.6, hy + 2.6 - lift), (hx - 10.2 - math.sin(sway) * 3.2, hy + 4.6 - lift * 1.6)]
+        c.tapered(k.hair if lift else shade(k.hair, -0.2), tail, 1.3, 0.6)
+    scarf = [(hx + 4.6, hy - 4.4), (hx + 1.2, hy - 7.2), (hx - 4.4, hy - 6.6), (hx - 6.9, hy - 2.0), (hx - 6.2, hy + 2.8),
+             (hx - 3.2, hy + 1.6), (hx + 0.8, hy - 3.0)]
+    c.polygon(k.hair, scarf, OUTLINE, 0.8)
+    c.polygon(shade(k.hair, -0.2), [(hx - 4.4, hy - 6.6), (hx - 6.9, hy - 2.0), (hx - 6.2, hy + 2.8), (hx - 4.6, hy + 1.6)])
+    c.line(k.trim, (hx + 4.4, hy - 4.2), (hx - 4.6, hy - 5.8), 0.55)
+    for s in range(3):
+        c.circle(k.trim, (hx + 3.0 - s * 2.6, hy - 4.6 - s * 0.4), 0.4)
+    c.circle((44, 26, 26), (hx + 3.8, hy - 3.4), 0.9)
+    c.circle((250, 244, 230), (hx - 1.0, hy + 2.6), 0.8, OUTLINE, 0.3)
+    _eyes_and_brow(c, hx, hy, pose, k)
+
+
+def _head_crone(c: Canvas, sk: Skeleton, pose: Pose, k: Costume) -> None:
+    """The rain-caller: an old woman in a starry hooded shawl fringed with silver beads."""
+    hx, hy = _face(c, sk, pose, k)
+    for y0 in (0.4, 2.0):
+        c.line(shade(k.skin, -0.25), (hx + 1.2, hy + y0 + 0.6), (hx + 2.6, hy + y0 + 1.4), 0.3)
+    c.lines(k.hair, [(hx + 3.8, hy - 3.6), (hx + 2.4, hy - 2.0), (hx + 2.8, hy - 0.4)], 0.6)
+    hood = [(hx + 4.8, hy - 5.0), (hx + 0.8, hy - 8.2), (hx - 4.8, hy - 7.4), (hx - 8.2, hy - 2.0), (hx - 7.8, hy + 6.2),
+            (hx - 3.2, hy + 7.0), (hx - 2.8, hy + 1.4), (hx + 1.2, hy - 3.6)]
+    c.polygon(k.top, hood, OUTLINE, 0.9)
+    c.polygon(k.top_shade, [(hx - 4.8, hy - 7.4), (hx - 8.2, hy - 2.0), (hx - 7.8, hy + 6.2), (hx - 5.6, hy + 4.6)])
+    for x0, y0 in ((-3.0, -4.6), (-5.6, 1.0), (-1.0, -6.6)):
+        c.star(k.trim, (hx + x0, hy + y0), 0.9, 4, 0.4)
+    for s in range(5):
+        u = s / 4
+        c.circle(k.trim, (hx + 4.6 - 7.6 * u, hy - 4.4 + 6.4 * u), 0.5)    # beads along the hood's edge
+    _kohl_eyes(c, hx, hy, pose, k, k.hair)
+
+
 HEADS = {
     "dancer": _head_dancer, "juggler": _head_juggler, "weaver": _head_weaver,
     "veiled": _head_veiled, "firebraid": _head_firebraid, "elder": _head_elder,
+    "saqqa": _head_saqqa, "fisher": _head_fisher, "crone": _head_crone,
 }
 
 

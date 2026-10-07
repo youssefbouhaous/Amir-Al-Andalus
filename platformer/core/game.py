@@ -6,6 +6,7 @@ from audio.audio_manager import AudioManager
 from core import settings
 from core.assets import AssetManager
 from core.context import GameContext
+from core.display import Display
 from core.input import InputState
 from core.save import SaveManager
 from rendering.sprite_library import SpriteLibrary
@@ -25,7 +26,9 @@ class Game:
         pygame.display.set_caption(settings.WINDOW_TITLE)
         self._save = SaveManager()
         options = self._save.data.options
-        self._screen = self._create_window(options.fullscreen)
+        # The game draws a fixed 960x540 frame; the display keeps it sharp at any window size.
+        self._display = Display(options.fullscreen)
+        self._screen = self._display.frame
         self._clock = pygame.time.Clock()
 
         assets = AssetManager(settings.ASSETS_DIR)
@@ -48,30 +51,21 @@ class Game:
 
         self._scenes.push(TitleScene(self._context))
 
-    @staticmethod
-    def _create_window(fullscreen: bool) -> pygame.Surface:
-        # SCALED keeps the logical 960x540 resolution and lets SDL scale it
-        # (with letterboxing) to any window size or to the whole screen.
-        flags = pygame.SCALED | pygame.RESIZABLE
-        if fullscreen:
-            flags |= pygame.FULLSCREEN
-        try:
-            return pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), flags, vsync=1)
-        except pygame.error:
-            return pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), flags)
-
     def run(self) -> None:
         # Reset the clock so time spent loading isn't counted as the first frame.
         self._clock.tick()
 
-        while self._scenes.running:
-            frame_time = self._clock.tick(settings.FPS) / 1000.0
-            frame_time = min(frame_time, settings.MAX_FRAME_TIME)
+        try:
+            while self._scenes.running:
+                frame_time = self._clock.tick(settings.FPS) / 1000.0
+                frame_time = min(frame_time, settings.MAX_FRAME_TIME)
 
-            self._handle_events()
-            self._update(frame_time)
-            self._draw()
-        self._save.save()
+                self._handle_events()
+                self._update(frame_time)
+                self._draw()
+            self._save.save()
+        finally:
+            self._display.close()
 
     def _handle_events(self) -> None:
         events = pygame.event.get()
@@ -84,12 +78,12 @@ class Game:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
                 self.toggle_fullscreen()
             else:
-                self._scenes.handle_event(event)
+                self._scenes.handle_event(self._display.to_frame(event))
 
     def toggle_fullscreen(self) -> None:
         options = self._save.data.options
         options.fullscreen = not options.fullscreen
-        pygame.display.toggle_fullscreen()
+        self._display.toggle_fullscreen()
         self._save.save()
 
     def _update(self, frame_time: float) -> None:
@@ -109,4 +103,4 @@ class Game:
         self._scenes.draw(self._screen)
         top = self._scenes.top
         self._debug_overlay.draw(self._screen, top.debug_lines() if top else [])
-        pygame.display.flip()
+        self._display.present()

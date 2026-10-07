@@ -102,6 +102,9 @@ TRACKS: dict[str, TrackSpec] = {
     # The Castle of Borrowed Hours: a slow night waltz of bells and qanun in a sleeping library.
     "borrowed": TrackSpec("nahawand", 60, 96, "samai", bars=12, lead="qanun", density=0.6, drums=0.7,
                           reverb=0.5, bells=True, seed=63),
+    # The River-Thieves at the Sky-Noria: a rolling, splashing ney tune over the groan of the wheel.
+    "river": TrackSpec("bayati", 62, 132, "malfuf", bars=16, lead="ney", density=0.8, drums=1.1,
+                       reverb=0.4, bells=True, seed=74),
 }
 
 
